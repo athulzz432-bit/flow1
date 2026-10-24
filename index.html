@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Flow — Athul</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;800&family=Share+Tech+Mono&display=swap">
+<style>
+:root{--bg:#02080a;--cy:#19e6ff;--cy2:#0a8fa3;--dim:#0b3a44;--text:#bff6ff;--muted:#5fb4c2;--glow:0 0 8px rgba(25,230,255,.55);
+color-scheme:dark;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:radial-gradient(ellipse at 50% 30%,#06202a 0%,var(--bg) 70%);color:var(--text);font:15px/1.5 "Share Tech Mono",ui-monospace,Consolas,monospace;overflow:hidden}
+body::before{content:"";position:fixed;inset:0;background-image:linear-gradient(rgba(25,230,255,.05) 1px,transparent 1px),linear-gradient(90deg,rgba(25,230,255,.05) 1px,transparent 1px);background-size:40px 40px;pointer-events:none}
+.orb{font-family:Orbitron,"Share Tech Mono",sans-serif;letter-spacing:.12em;text-transform:uppercase}
+.hud{position:relative;display:grid;grid-template-columns:200px 1fr 200px;gap:14px;height:100%;padding:14px;max-width:1200px;margin:0 auto}
+.panel{border:1px solid var(--cy2);position:relative;padding:12px;background:rgba(3,20,26,.65);box-shadow:inset 0 0 18px rgba(25,230,255,.07)}
+.panel::before,.panel::after{content:"";position:absolute;width:12px;height:12px;border:2px solid var(--cy);box-shadow:var(--glow)}
+.panel::before{top:-2px;left:-2px;border-right:0;border-bottom:0}
+.panel::after{bottom:-2px;right:-2px;border-left:0;border-top:0}
+.side{display:flex;flex-direction:column;gap:14px}
+.clock{text-align:center}
+.clock .t{font-size:30px;color:var(--cy);text-shadow:var(--glow)}
+.clock .d{color:var(--muted);font-size:12px}
+.row{display:flex;justify-content:space-between;border-bottom:1px dashed var(--dim);padding:5px 0;font-size:13px}
+.row b{color:var(--cy);font-weight:400}
+h2{margin:0 0 8px;font-size:11px;color:var(--cy);font-weight:600}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--cy);box-shadow:var(--glow);margin-right:6px}
+.busy .dot{background:#ffb347;box-shadow:0 0 8px #ffb347}
+.center{display:flex;flex-direction:column;min-height:0;gap:12px}
+.reactor{height:170px;display:flex;justify-content:center;flex-shrink:0}
+.reactor svg{height:100%;width:auto;overflow:visible}
+.spin{transform-origin:100px 100px;animation:spin 24s linear infinite}
+.spin2{transform-origin:100px 100px;animation:spin 14s linear infinite reverse}
+.busy .spin{animation-duration:3s}.busy .spin2{animation-duration:2s}
+.core{animation:pulse 3s ease-in-out infinite;transform-origin:100px 100px}
+.busy .core{animation-duration:.8s}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes pulse{50%{opacity:.45}}
+.chat{flex:1;min-height:0;display:flex;flex-direction:column;padding:0}
+#log{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10px}
+#log::-webkit-scrollbar{width:6px}#log::-webkit-scrollbar-thumb{background:var(--cy2)}
+.msg{max-width:88%;padding:8px 12px;white-space:pre-wrap;word-wrap:break-word;border:1px solid var(--cy2)}
+.msg small{display:block;font-size:10px;color:var(--muted);letter-spacing:.15em;margin-bottom:2px}
+.user{align-self:flex-end;background:rgba(25,230,255,.14);border-color:var(--cy)}
+.bot{align-self:flex-start;background:rgba(2,12,16,.8)}
+.note{align-self:center;color:var(--muted);font-size:13px;text-align:center}
+.bar{display:flex;gap:8px;border-top:1px solid var(--cy2);padding:10px}
+textarea{flex:1;resize:none;font:inherit;color:var(--text);background:rgba(0,0,0,.5);border:1px solid var(--cy2);padding:9px 11px;max-height:120px}
+textarea:focus{outline:none;border-color:var(--cy);box-shadow:var(--glow)}
+button{font:inherit;background:transparent;color:var(--cy);border:1px solid var(--cy);padding:0 16px;cursor:pointer;text-transform:uppercase;letter-spacing:.12em}
+button:hover:not(:disabled){background:var(--cy);color:#001418;box-shadow:var(--glow)}
+button:disabled{opacity:.4;cursor:default}
+.mini{padding:5px;font-size:11px;width:100%;margin-top:8px}
+@media (max-width:860px){
+  .hud{grid-template-columns:1fr;padding:8px;gap:8px}
+  .side{display:none}
+  .reactor{height:110px}
+}
+.m{margin:8px 0;font-size:12px;color:var(--muted)}
+.m span{display:flex;justify-content:space-between;margin-bottom:3px}
+.m i{display:block;height:8px;border:1px solid var(--cy2);overflow:hidden}
+.m u{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--cy2),var(--cy));box-shadow:var(--glow);transition:width .5s;text-decoration:none}
+.m u.ind{width:35%!important;animation:slide 1s linear infinite}
+@keyframes slide{from{margin-left:-35%}to{margin-left:100%}}
+.hud{padding-bottom:calc(62px + env(safe-area-inset-bottom,0px))}
+.taskbar{position:fixed;left:0;right:0;bottom:0;display:flex;align-items:center;gap:6px;padding:8px 12px calc(8px + env(safe-area-inset-bottom,0px));background:rgba(2,12,16,.94);border-top:1px solid var(--cy);box-shadow:0 -4px 18px rgba(25,230,255,.12);z-index:5}
+.taskbar button{height:34px;padding:0 14px;font-size:11px;display:flex;align-items:center}
+.taskbar .start{background:rgba(25,230,255,.12)}
+.tray{margin-left:auto;display:flex;gap:14px;font-size:11px;color:var(--cy);white-space:nowrap}
+@media (max-width:520px){.tray #tray-up,.tray #tray-st{display:none}.taskbar button{padding:0 10px}}
+.flowname{text-align:center;color:var(--cy);text-shadow:var(--glow);font-size:20px;font-weight:800;letter-spacing:.4em;margin:-4px 0 -2px;padding-left:.4em}
+button.on{background:var(--cy);color:#001418;box-shadow:var(--glow)}
+.listening .reactor svg,.speaking .reactor svg{filter:drop-shadow(0 0 10px var(--cy))}
+.listening .spin2{animation-duration:4s}.listening .core{animation-duration:1.4s}
+.speaking .spin{animation-duration:6s}.speaking .core{animation-duration:.45s}
+.taskbar{overflow-x:auto;scrollbar-width:none}
+.taskbar::-webkit-scrollbar{display:none}
+.taskbar button{flex:0 0 auto}
+.tray{flex:0 0 auto}.direction-panel{display:flex;align-items:center;gap:14px;padding:8px 14px;min-height:106px}
+.direction-compass{width:82px;height:82px;flex:none;position:relative;border:1px solid var(--cy);border-radius:50%;box-shadow:inset 0 0 16px rgba(25,230,255,.1),0 0 10px rgba(25,230,255,.12);background:radial-gradient(circle,rgba(25,230,255,.08) 0 45%,transparent 46%)}
+.direction-compass:before,.direction-compass:after{content:"";position:absolute;background:var(--dim)}
+.direction-compass:before{width:1px;height:68px;left:40px;top:6px}
+.direction-compass:after{height:1px;width:68px;top:40px;left:6px}
+.compass-mark{position:absolute;font-size:9px;color:var(--muted);z-index:1}
+.compass-mark.n{top:2px;left:37px;color:var(--cy)}
+.compass-mark.e{right:4px;top:36px}.compass-mark.s{bottom:2px;left:37px}.compass-mark.w{left:4px;top:36px}
+.needle{position:absolute;inset:0;display:grid;place-items:center;z-index:2;transition:transform .35s ease}
+.needle:before{content:"";width:5px;height:55px;background:linear-gradient(var(--cy) 0 50%,var(--cy2) 50% 100%);clip-path:polygon(50% 0,100% 50%,63% 50%,63% 100%,37% 100%,37% 50%,0 50%);filter:drop-shadow(0 0 5px var(--cy))}
+.direction-info{display:grid;gap:5px;min-width:0}
+.direction-readout{display:flex;align-items:baseline;gap:9px}
+.direction-readout strong{font-size:20px;color:var(--cy);font-weight:400}
+.direction-readout span,.direction-hint{font-size:9px;color:var(--muted);letter-spacing:.1em}
+.direction-controls{display:flex;gap:5px}
+.direction-controls button{height:27px;width:34px;padding:0;font-size:10px}
+.direction-controls button.selected{background:var(--cy);color:#001418}
+.direction-info .ask-dir{height:25px;padding:0 9px;font-size:9px;justify-self:start}
+@media(max-width:520px){.direction-panel{min-height:92px;padding:6px 10px;gap:10px}.direction-compass{width:70px;height:70px}.direction-compass:before{height:58px;left:34px;top:5px}.direction-compass:after{width:58px;top:34px;left:5px}.compass-mark.n,.compass-mark.s{left:31px}.compass-mark.e{top:30px}.compass-mark.w{top:30px}.needle:before{height:47px}}/* Flow HUD visual upgrade */
+:root{--bg:#030813;--cy:#5cecff;--cy2:#2879ff;--dim:#174267;--text:#e3f8ff;--muted:#83b8d8;--glow:0 0 12px rgba(66,218,255,.62)}
+html,body{background:#030813}
+body{background:radial-gradient(ellipse at 50% 27%,rgba(12,72,112,.52),transparent 44%),radial-gradient(ellipse at 50% 100%,rgba(15,44,100,.32),transparent 55%),linear-gradient(145deg,#050d1b,#020610 70%);color:var(--text)}
+body::before{opacity:.14;background-image:linear-gradient(rgba(77,208,255,.1) 1px,transparent 1px),linear-gradient(90deg,rgba(77,208,255,.1) 1px,transparent 1px);background-size:34px 34px;mask-image:radial-gradient(ellipse at center,#000 25%,transparent 82%)}
+body::after{content:"";position:fixed;inset:0;z-index:4;pointer-events:none;background:repeating-linear-gradient(0deg,transparent 0 3px,rgba(92,236,255,.022) 4px);opacity:.55}
+.hud{max-width:1540px;grid-template-columns:minmax(190px,230px) minmax(0,1fr) minmax(190px,230px);gap:16px;padding:20px 22px calc(76px + env(safe-area-inset-bottom,0px))}
+.panel{border:1px solid rgba(75,202,255,.48);background:linear-gradient(145deg,rgba(8,29,53,.88),rgba(3,10,23,.82));backdrop-filter:blur(9px);box-shadow:inset 0 0 24px rgba(31,126,212,.11),0 7px 26px rgba(0,0,0,.28)}
+.panel::before,.panel::after{width:20px;height:20px;border-color:var(--cy);box-shadow:0 0 10px rgba(92,236,255,.6)}
+.panel::before{top:-1px;left:-1px;border-top:2px solid;border-left:2px solid}
+.panel::after{bottom:-1px;right:-1px;border-bottom:2px solid;border-right:2px solid}
+.side{gap:16px}
+h2{font-size:10px;letter-spacing:.2em;text-shadow:0 0 10px rgba(92,236,255,.35)}
+.row{border-bottom:1px solid rgba(70,154,201,.24);color:#9abdd1}
+.row b{color:#77eaff;text-shadow:0 0 7px rgba(92,236,255,.35)}
+.dot{box-shadow:0 0 10px var(--cy);animation:flowBlink 2s infinite}
+.clock .t{font-size:32px;text-shadow:0 0 18px rgba(92,236,255,.62)}
+.clock .d{letter-spacing:.13em}
+.center{gap:13px}
+.reactor{height:184px}
+.reactor svg{filter:drop-shadow(0 0 14px rgba(36,179,255,.33))}
+.flowname{font-size:24px;letter-spacing:.55em;text-shadow:0 0 10px rgba(92,236,255,.7),0 0 30px rgba(40,121,255,.55)}
+.chat{border-color:rgba(92,236,255,.62);box-shadow:inset 0 0 34px rgba(23,100,180,.12),0 0 24px rgba(11,122,199,.1)}
+#log{background:radial-gradient(ellipse at 50% 0,rgba(15,77,117,.12),transparent 70%)}
+.msg{border-radius:2px;backdrop-filter:blur(6px);box-shadow:0 4px 16px rgba(0,0,0,.2);animation:flowIn .22s ease-out}
+.msg small{color:#6fdfff}
+.user{background:linear-gradient(120deg,rgba(16,99,155,.32),rgba(20,42,82,.42));border-color:rgba(92,236,255,.78)}
+.bot{background:linear-gradient(130deg,rgba(7,30,54,.92),rgba(4,13,29,.9));border-left:2px solid var(--cy2)}
+.bar{border-top-color:rgba(75,202,255,.45);background:linear-gradient(90deg,rgba(3,11,24,.45),rgba(9,35,58,.34))}
+textarea{border-color:rgba(65,170,221,.52);background:rgba(1,7,18,.8);box-shadow:inset 0 0 14px rgba(24,95,160,.12)}
+textarea:focus{border-color:var(--cy);box-shadow:0 0 15px rgba(92,236,255,.25),inset 0 0 12px rgba(24,95,160,.16)}
+button{border-color:rgba(92,236,255,.68);background:linear-gradient(180deg,rgba(24,82,130,.28),rgba(3,17,34,.68));transition:background .2s,box-shadow .2s,transform .2s,color .2s}
+button:hover:not(:disabled){background:linear-gradient(120deg,#5cecff,#368eff);color:#03101d;box-shadow:0 0 16px rgba(74,211,255,.5);transform:translateY(-1px)}
+button:active:not(:disabled){transform:translateY(0)}
+button.on,.direction-controls button.selected{background:linear-gradient(120deg,#5cecff,#368eff);color:#03101d;box-shadow:0 0 16px rgba(74,211,255,.55)}
+.m{color:#8bbad4}
+.m i{border-color:rgba(65,170,221,.4);background:rgba(1,10,23,.65)}
+.m u{background:linear-gradient(90deg,#2879ff,#5cecff,#d6fbff);box-shadow:0 0 10px rgba(92,236,255,.64)}
+.taskbar{background:linear-gradient(90deg,rgba(3,9,21,.97),rgba(7,25,46,.97),rgba(3,9,21,.97));border-top:1px solid rgba(92,236,255,.7);box-shadow:0 -6px 24px rgba(27,151,255,.15);backdrop-filter:blur(12px)}
+.taskbar button{border-color:rgba(73,185,235,.48);background:linear-gradient(180deg,rgba(10,38,67,.72),rgba(4,15,31,.9));}
+.taskbar .start{border-color:var(--cy);background:linear-gradient(120deg,rgba(25,153,223,.34),rgba(32,90,171,.25));box-shadow:inset 0 0 14px rgba(92,236,255,.12)}
+.tray{color:#8ceeff;text-shadow:0 0 8px rgba(92,236,255,.42)}
+.direction-panel{border-color:rgba(92,236,255,.6);background:linear-gradient(110deg,rgba(8,30,56,.88),rgba(3,12,27,.9));box-shadow:inset 0 0 22px rgba(25,117,206,.12),0 0 16px rgba(34,146,221,.08)}
+.direction-compass{border-color:rgba(92,236,255,.82);box-shadow:inset 0 0 20px rgba(35,166,255,.14),0 0 14px rgba(47,172,255,.18)}
+.direction-compass:before,.direction-compass:after{background:rgba(71,166,218,.3)}
+.direction-readout strong{font-family:Orbitron,"Share Tech Mono",sans-serif;text-shadow:0 0 12px rgba(92,236,255,.52)}
+@keyframes flowBlink{50%{opacity:.48}}
+@keyframes flowIn{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
+@media(max-width:860px){.hud{padding:8px 8px calc(58px + env(safe-area-inset-bottom,0px));gap:8px}.reactor{height:116px}}
+@media(max-width:520px){.taskbar{gap:5px;padding-left:8px;padding-right:8px}.taskbar button{padding:0 11px;font-size:10px}.tray{gap:8px;font-size:9px}.direction-panel{border-color:rgba(92,236,255,.6)}}.task-ribbon{display:flex;align-items:center;gap:6px;padding:6px 8px;min-width:0;overflow-x:auto;scrollbar-width:none;border:1px solid rgba(92,236,255,.42);border-left:2px solid var(--cy);background:linear-gradient(90deg,rgba(7,31,56,.82),rgba(3,12,27,.76));box-shadow:inset 0 0 16px rgba(28,123,195,.1)}
+.task-ribbon::-webkit-scrollbar{display:none}
+.task-ribbon-label{flex:0 0 auto;margin:0 4px 0 1px;color:var(--cy);font-size:8px;letter-spacing:.16em}
+.task-ribbon button{flex:0 0 auto;height:26px;padding:0 10px;font-size:9px;white-space:nowrap}
+.task-links{padding:11px 12px}
+.task-link-list{position:relative;display:grid;gap:2px;margin-top:8px}
+.task-link-list:before{content:"";position:absolute;left:5px;top:8px;bottom:8px;width:1px;background:linear-gradient(transparent,var(--cy2),var(--cy),var(--cy2),transparent);opacity:.65}
+.task-link{position:relative;display:flex;align-items:center;gap:9px;width:100%;min-height:25px;padding:3px 2px;background:transparent;border:0;text-align:left;text-transform:none;letter-spacing:.08em;font-size:10px;color:#a7d1e5;box-shadow:none}
+.task-link:before{content:"";position:absolute;left:8px;right:15px;top:50%;height:1px;background:linear-gradient(90deg,rgba(92,236,255,.35),transparent);z-index:0}
+.task-link .node{width:8px;height:8px;flex:0 0 8px;border:1px solid var(--cy);border-radius:50%;background:#06192a;box-shadow:0 0 8px rgba(92,236,255,.55);z-index:1}
+.task-link span{z-index:1;padding-right:5px;background:rgba(5,20,36,.94)}
+.task-link b{margin-left:auto;color:var(--cy);font-weight:400;z-index:1}
+.task-link:hover:not(:disabled){transform:translateX(3px);background:transparent;color:#e7fbff;box-shadow:none}
+.task-link:hover .node{background:var(--cy);box-shadow:0 0 12px var(--cy)}
+@media(max-width:860px){.task-ribbon{gap:5px}.task-ribbon-label{font-size:7px}.task-ribbon button{padding:0 9px}}.hud-gauges{display:flex;justify-content:center;align-items:center;gap:clamp(12px,4vw,34px);padding:7px 12px;min-height:78px;border:1px solid rgba(92,236,255,.42);background:linear-gradient(95deg,rgba(4,19,38,.72),rgba(8,33,58,.72),rgba(4,19,38,.72));box-shadow:inset 0 0 20px rgba(36,137,212,.11);position:relative}
+.hud-gauges:before,.hud-gauges:after{content:"";height:1px;position:absolute;left:0;right:0;background:linear-gradient(90deg,transparent,rgba(92,236,255,.5),transparent)}
+.hud-gauges:before{top:0}.hud-gauges:after{bottom:0}
+.hud-ring{--progress:0%;width:62px;height:62px;flex:0 0 62px;border-radius:50%;display:grid;place-items:center;position:relative;background:conic-gradient(var(--cy) var(--progress),rgba(38,100,140,.25) var(--progress));box-shadow:0 0 12px rgba(52,192,255,.12)}
+.hud-ring:before{content:"";position:absolute;inset:4px;border-radius:50%;background:radial-gradient(circle at 50% 40%,rgba(21,74,111,.6),rgba(3,11,25,.98) 72%);border:1px solid rgba(92,236,255,.36)}
+.hud-ring:after{content:"";position:absolute;inset:-3px;border-radius:50%;border:1px dashed rgba(92,236,255,.3)}
+.hud-ring-content{position:relative;z-index:1;display:grid;justify-items:center;line-height:1.05}
+.hud-ring-content strong{font-family:Orbitron,"Share Tech Mono",sans-serif;color:#d8fbff;font-size:13px;font-weight:600;text-shadow:0 0 8px rgba(92,236,255,.65)}
+.hud-ring-content small{margin-top:4px;color:var(--muted);font-size:7px;letter-spacing:.12em}
+.hud-telemetry{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;padding:2px 5px}
+.telemetry-cell{min-width:0}
+.telemetry-label{display:flex;justify-content:space-between;gap:6px;margin-bottom:3px;color:#82b9d7;font-size:8px;letter-spacing:.13em}
+.telemetry-label b{color:#b8f4ff;font-weight:400}
+.telemetry-track{height:4px;border:1px solid rgba(80,175,224,.38);background:rgba(2,11,25,.8);overflow:hidden}
+.telemetry-track i{display:block;width:0;height:100%;background:linear-gradient(90deg,#2879ff,#5cecff,#d7fbff);box-shadow:0 0 9px rgba(92,236,255,.68);transition:width .45s}
+.telemetry-track i.ind{width:34%!important;animation:slide 1s linear infinite}
+@media(max-width:520px){.hud-gauges{min-height:70px;gap:18px;padding:6px}.hud-ring{width:54px;height:54px;flex-basis:54px}.hud-ring-content strong{font-size:11px}.hud-ring-content small{font-size:6px}.hud-telemetry{gap:6px}.telemetry-label{font-size:7px}}</style>
+
+<style>
+/* Flow clock and voice meter in the chat welcome area */
+@media(max-width:860px){.hud{grid-template-columns:minmax(0,1fr)}.center{width:100%;min-width:0}.side{display:none}}
+.welcome-dashboard{flex:0 0 auto;width:min(100%,560px);margin:8px auto 2px;padding:11px 14px;display:flex;align-items:center;gap:16px;border:1px solid rgba(92,236,255,.48);background:linear-gradient(105deg,rgba(5,24,44,.9),rgba(8,42,67,.75),rgba(3,14,29,.9));box-shadow:inset 0 0 20px rgba(54,170,225,.13),0 0 16px rgba(47,159,221,.1)}
+.welcome-clock{width:66px;height:66px;flex:0 0 66px}
+.welcome-clock .hud-ring-content strong{font-size:12px}
+.welcome-clock .hud-ring-content small{font-size:6px}
+.welcome-meter{min-width:0;flex:1;display:flex;flex-direction:column;gap:6px}
+.welcome-meter-head,.welcome-meter-foot{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:8px;letter-spacing:.12em}
+.welcome-meter-head strong{color:#5cecff;font-size:9px;font-weight:400}
+.welcome-meter-head span,.welcome-meter-foot span{color:#85bad5}
+.welcome-meter-foot b{color:#bff6ff;font-weight:400}
+.welcome-voice-bars{height:25px;display:grid;grid-template-columns:repeat(24,minmax(2px,1fr));align-items:end;gap:2px;padding:3px 5px;border:1px solid rgba(92,236,255,.3);background:rgba(1,8,20,.8)}
+.welcome-voice-bars i{display:block;width:100%;height:2px;border-radius:1px;background:linear-gradient(0deg,#2879ff,#5cecff,#e1fdff);opacity:.34;box-shadow:0 0 6px rgba(92,236,255,.52);transition:height .075s linear,opacity .075s linear}
+.welcome-dashboard.meter-active .welcome-meter-head strong{color:#d6fbff;text-shadow:0 0 8px rgba(92,236,255,.55)}
+@media(max-width:520px){.welcome-dashboard{gap:9px;padding:8px 9px;margin-top:5px}.welcome-clock{width:54px;height:54px;flex-basis:54px}.welcome-clock .hud-ring-content strong{font-size:10px}.welcome-voice-bars{gap:1px;height:21px;padding:2px}.welcome-meter-head,.welcome-meter-foot{font-size:7px}}
+</style>
+
+<style>
+.chat-heading{flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:32px;padding:6px 12px;border-bottom:1px solid rgba(92,236,255,.32);background:linear-gradient(90deg,rgba(6,28,50,.88),rgba(3,14,29,.66));color:#5cecff;font-family:Orbitron,"Share Tech Mono",sans-serif;font-size:9px;letter-spacing:.16em;text-shadow:0 0 9px rgba(92,236,255,.36)}
+.chat-heading span:last-child{color:#83b8d8;font:8px "Share Tech Mono",monospace;letter-spacing:.08em;text-align:right;text-shadow:none}
+@media(max-width:860px){html,body{height:auto;min-height:100%}body{overflow-x:hidden;overflow-y:auto}.hud{height:auto;min-height:100vh;padding-bottom:calc(76px + env(safe-area-inset-bottom,0px))}.center{min-height:0}.chat{flex:0 0 240px;min-height:240px}.chat .bar{flex:0 0 auto}}
+.profile-tag{text-align:center;color:var(--muted);font-size:8px;letter-spacing:.2em;margin:-10px 0 -8px}.profile-tag span{color:var(--cy);margin-left:5px}
+
+/* 3D Earth */
+.reactor{position:relative}
+.core{display:none}
+#earth{position:absolute;left:50%;top:50%;height:52%;aspect-ratio:1/1;transform:translate(-50%,-50%);border-radius:50%;pointer-events:none;filter:drop-shadow(0 0 10px rgba(40,160,255,.55))}
+
+/* Voice meter strip */
+#vmeter{flex:0 0 auto;display:flex;align-items:center;gap:10px;padding:5px 12px;border-top:1px solid rgba(92,236,255,.3);background:rgba(2,10,22,.6);font:9px "Share Tech Mono",monospace;letter-spacing:.14em;color:var(--muted)}
+#vm-state{min-width:74px;color:var(--cy)}
+#vm-bars{flex:1;display:flex;align-items:center;justify-content:center;gap:2px;height:24px;min-width:0}
+#vm-bars i{display:block;flex:0 1 4px;min-width:2px;height:2px;border-radius:1px;background:linear-gradient(var(--cy),var(--cy2));box-shadow:0 0 6px rgba(92,236,255,.45);opacity:.3}
+#vm-pct{min-width:34px;text-align:right;color:var(--cy)}
+#vmeter.out #vm-bars i{background:linear-gradient(#bff6ff,var(--cy))}
+
+/* Page scrolling with mouse wheel / scrollbar on all screen sizes */
+html,body{height:auto;min-height:100%}
+html{scroll-behavior:smooth}
+body{overflow-x:hidden;overflow-y:auto}
+.hud{height:auto;min-height:100vh;padding-bottom:calc(76px + env(safe-area-inset-bottom,0px))}
+@media(min-width:861px){.chat{flex:0 0 520px;min-height:520px}}
+html{scrollbar-width:thin;scrollbar-color:#2879ff #030813}
+body::-webkit-scrollbar{width:10px}body::-webkit-scrollbar-track{background:#030813}
+body::-webkit-scrollbar-thumb{background:linear-gradient(#5cecff,#2879ff);border-radius:6px;border:2px solid #030813}
+</style>
+</head>
+<body>
+<div class="hud" id="hud">
+  <aside class="side">
+    <div class="panel clock">
+      <div class="t orb" id="time">--:--</div>
+      <div class="d" id="date">&nbsp;</div>
+    </div>
+    <div class="panel">
+      <h2 class="orb">System</h2>
+      <div class="row"><span>Status</span><b id="st"><span class="dot"></span>Online</b></div>
+      <div class="row"><span>Uplink</span><b id="up">Checking</b></div>
+      <div class="row"><span>Session</span><b id="sess">00:00</b></div>
+    </div>
+    <div class="panel">
+      <h2 class="orb">Meters</h2>
+      <div class="m"><span>Context</span><i><u id="b-ctx"></u></i></div>
+      <div class="m"><span>Latency <b id="lat">--</b></span><i><u id="b-lat"></u></i></div>
+      <div class="m"><span>Uplink</span><i><u id="b-up"></u></i></div>
+    </div>
+  </aside>
+
+  <main class="center">
+    <div class="reactor">
+      <canvas id="earth" aria-label="Rotating Earth"></canvas>
+      <svg viewBox="0 0 200 200" aria-hidden="true">
+        <g class="spin"><circle cx="100" cy="100" r="94" fill="none" stroke="#19e6ff" stroke-width="2" stroke-dasharray="3 7" opacity=".8"/></g>
+        <g class="spin2"><circle cx="100" cy="100" r="82" fill="none" stroke="#0a8fa3" stroke-width="6" stroke-dasharray="60 20 10 20"/></g>
+        <circle cx="100" cy="100" r="68" fill="none" stroke="#19e6ff" stroke-width="3" opacity=".9"/>
+        <circle cx="100" cy="100" r="52" fill="rgba(25,230,255,.12)" stroke="#19e6ff" stroke-width="1.5"/>
+        <g class="core">
+          <circle cx="100" cy="100" r="30" fill="rgba(25,230,255,.35)" stroke="#bff6ff" stroke-width="2"/>
+          <circle cx="100" cy="100" r="12" fill="#bff6ff"/>
+        </g>
+      </svg>
+    </div>
+    <nav class="task-ribbon orb" aria-label="Flow task bar">
+      <span class="task-ribbon-label">TASK LINKS</span>
+      <button data-flow-task data-prompt="Research this topic and give me a concise, balanced overview: ">Research</button>
+      <button data-flow-task data-prompt="Translate this into clear English: ">Translate</button>
+      <button data-flow-task data-prompt="Analyze this and identify the key points: ">Analyze</button>
+      <button data-flow-task data-prompt="Teach me this step by step: ">Learn</button>
+    </nav>
+    <div class="flowname orb">Flow</div>
+    <div class="profile-tag orb" aria-label="Athul, preferred name AT">ATHUL <span>• AT</span></div>
+    <section class="panel direction-panel" aria-label="Direction controls">
+      <div class="direction-compass" aria-hidden="true">
+        <span class="compass-mark n">N</span><span class="compass-mark e">E</span><span class="compass-mark s">S</span><span class="compass-mark w">W</span>
+        <div class="needle" id="needle"></div>
+      </div>
+      <div class="direction-info">
+        <h2 class="orb">Direction / Heading</h2>
+        <div class="direction-readout"><strong id="heading">000°</strong><span id="cardinal">NORTH</span></div>
+        <div class="direction-controls" role="group" aria-label="Set manual heading">
+          <button class="orb selected" data-bearing="0" data-cardinal="NORTH" aria-label="Set north">N</button>
+          <button class="orb" data-bearing="90" data-cardinal="EAST" aria-label="Set east">E</button>
+          <button class="orb" data-bearing="180" data-cardinal="SOUTH" aria-label="Set south">S</button>
+          <button class="orb" data-bearing="270" data-cardinal="WEST" aria-label="Set west">W</button>
+        </div>
+        <button class="orb ask-dir" id="ask-direction">Ask Flow</button>
+        <span class="direction-hint">MANUAL HEADING • NO GPS</span>
+      </div>
+    </section>
+    <section class="hud-gauges" aria-label="Flow live indicators">
+      <div class="hud-ring" id="ring-messages" style="--progress:0%"><div class="hud-ring-content"><strong id="g-messages">0</strong><small>MESSAGES</small></div></div>
+      <div class="hud-ring" id="ring-voice" style="--progress:18%"><div class="hud-ring-content"><strong id="g-voice">READY</strong><small>VOICE</small></div></div>
+      <div class="hud-ring" id="ring-session" style="--progress:0%"><div class="hud-ring-content"><strong id="g-session">00:00</strong><small>SESSION</small></div></div>
+    </section>
+    <section class="hud-telemetry" aria-label="Live status bars">
+      <div class="telemetry-cell"><div class="telemetry-label"><span>CONTEXT</span><b id="g-context-label">0%</b></div><div class="telemetry-track"><i id="main-ctx"></i></div></div>
+      <div class="telemetry-cell"><div class="telemetry-label"><span>UPLINK</span><b id="g-uplink-label">WAIT</b></div><div class="telemetry-track"><i id="main-up"></i></div></div>
+      <div class="telemetry-cell"><div class="telemetry-label"><span>REPLY STREAM</span><b id="g-stream-label">IDLE</b></div><div class="telemetry-track"><i id="main-stream"></i></div></div>
+    </section>    <section class="panel chat"><div class="chat-heading"><span>CHAT WITH FLOW</span><span>TYPE BELOW OR TAP VOICE</span></div>
+      <section class="welcome-dashboard" id="welcome-dashboard" aria-label="Live clock and voice meter"><div class="hud-ring welcome-clock" id="ring-time" style="--progress:0%"><div class="hud-ring-content"><strong id="g-time">--:--</strong><small>LOCAL TIME</small></div></div><div class="welcome-meter"><div class="welcome-meter-head"><strong>VOICE LEVEL</strong><span id="voice-meter-status">MIC OFF</span></div><div class="welcome-voice-bars" id="voice-meter-bars" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="welcome-meter-foot"><span id="voice-meter-hint">SELECT VOICE TO START</span><b id="voice-meter-value">0%</b></div></div></section><div id="log"><div class="note" id="hello">// Awaiting input. Say hello to begin.</div></div>
+      <div id="vmeter" aria-label="Voice meter"><span id="vm-state">VOICE IDLE</span><div id="vm-bars"></div><span id="vm-pct">0%</span></div>
+      <div class="bar">
+        <textarea id="input" rows="1" placeholder="Message Flow…"></textarea>
+        <button id="mic" class="orb" title="Voice mode">Mic</button>
+        <button id="send" class="orb">Send</button>
+      </div>
+    </section>
+  </main>
+
+  <aside class="side">
+    <div class="panel">
+      <h2 class="orb">Log</h2>
+      <div class="row"><span>Messages</span><b id="count">0</b></div>
+      <div class="row"><span>Replies</span><b id="rep">0</b></div>
+      <button class="mini orb" id="clear">New session</button>
+    </div>
+    <div class="panel">
+      <h2 class="orb">Tasks</h2>
+      <div class="m"><span>Reply stream</span><i><u id="tb-stream"></u></i></div>
+      <div class="m"><span>Input buffer</span><i><u id="b-buf"></u></i></div>
+      <div class="m"><span>Session (10 min)</span><i><u id="b-sess"></u></i></div>
+    </div>
+    <div class="panel task-links">
+      <h2 class="orb">Task Links</h2>
+      <div class="task-link-list">
+        <button class="task-link" data-flow-task data-prompt="Give me a concise summary of: "><i class="node"></i><span>Summary</span><b>›</b></button>
+        <button class="task-link" data-flow-task data-prompt="Help me brainstorm useful ideas for: "><i class="node"></i><span>Ideas</span><b>›</b></button>
+        <button class="task-link" data-flow-task data-prompt="Help me write or improve this: "><i class="node"></i><span>Writing</span><b>›</b></button>
+        <button class="task-link" data-flow-task data-prompt="Explain this in simple terms with an example: "><i class="node"></i><span>Explain</span><b>›</b></button>
+        <button class="task-link" data-flow-task data-prompt="Help me solve this step by step: "><i class="node"></i><span>Solve</span><b>›</b></button>
+      </div>
+    </div>  </aside>
+</div>
+
+<nav class="taskbar">
+  <button class="orb start" id="tb-new">New</button>
+  <button class="orb" id="tb-voice">Voice</button>
+  <button class="orb" id="tb-copy">Copy</button>
+  <button class="orb" id="tb-idea">Idea</button>  <button class="orb" id="tb-summary">Brief</button>
+  <button class="orb" id="tb-plan">Plan</button>
+  <button class="orb" id="tb-explain">Explain</button>
+  <button class="orb" id="tb-draft">Draft</button>
+  <button class="orb" id="tb-full">Full</button>
+  <div class="tray orb"><span id="tray-up">--</span><span id="tray-st">ONLINE</span><span id="tray-time">--:--</span></div>
+</nav>
+<script>
+const PERSONA = "Your name is Flow. If asked your name, say you are Flow. The user’s preferred name is AT; address them naturally as AT, especially in spoken replies, without repeating it too often. You are a friendly, helpful AI assistant shown in a futuristic heads-up-display style interface. Replies are often spoken aloud, so speak like a calm, polished, quietly witty British butler-style assistant: one to three short sentences unless asked for detail, no markdown, lists or emojis.";
+const $ = id => document.getElementById(id);
+const log=$("log"), input=$("input"), sendBtn=$("send"), hud=$("hud");
+let history=[], busy=false, sample=null, sessionStart=Date.now(), replies=0, lastMs=0, connectionState="";
+const pad = n => String(n).padStart(2,"0");
+
+function tick(){
+  const n=new Date();
+  $("time").textContent = pad(n.getHours())+":"+pad(n.getMinutes());
+  $("date").textContent = n.toLocaleDateString(undefined,{weekday:"short",day:"numeric",month:"short",year:"numeric"}).toUpperCase();
+  const s=Math.floor((Date.now()-sessionStart)/1000);
+  $("sess").textContent = pad(Math.floor(s/60))+":"+pad(s%60);
+  $("tray-time").textContent = pad(n.getHours())+":"+pad(n.getMinutes());
+  bar("b-sess",s/6); $("g-session").textContent=pad(Math.floor(s/60))+":"+pad(s%60); $("ring-session").style.setProperty("--progress",Math.min(100,s/6)+"%");
+}
+tick(); setInterval(tick,1000);
+
+function setBusy(b){
+  busy=b; hud.classList.toggle("busy",b); sendBtn.disabled=b||!sample;
+  $("st").innerHTML = '<span class="dot"></span>'+(b?"Processing":"Online");
+  $("tb-stream").classList.toggle("ind",b); $("main-stream").classList.toggle("ind",b); $("g-stream-label").textContent=b?"LIVE":"IDLE"; $("tray-st").textContent=b?"PROC":"ONLINE";
+}
+function connectionNote(state,text){if(connectionState!==state){connectionState=state;note(text);}}
+function bar(id,p){ const value=Math.max(0,Math.min(100,p)); $(id).style.width=value+"%"; const mirror={"b-ctx":"main-ctx","b-up":"main-up"}[id]; if(mirror&&$(mirror))$(mirror).style.width=value+"%"; if(id==="b-ctx"&&$("g-context-label"))$("g-context-label").textContent=Math.round(value)+"%"; if(id==="b-up"&&$("g-uplink-label"))$("g-uplink-label").textContent=value?"LINK":"WAIT"; }
+function stats(){ $("count").textContent=history.filter(m=>m.role==="user").length; $("rep").textContent=replies;
+  const userCount=history.filter(m=>m.role==="user").length; $("g-messages").textContent=String(userCount); $("ring-messages").style.setProperty("--progress",Math.min(100,userCount*5)+"%"); bar("b-ctx",history.length*2.5); bar("b-lat",lastMs/100); $("lat").textContent=lastMs?(lastMs/1000).toFixed(1)+"s":"--"; bar("b-buf",input.value.length/5); }
+
+async function connectFlow(){
+  try{
+    const check=await fetch("/api/status",{cache:"no-store"});
+    if(location.protocol==="file:") throw new Error("this is a saved file, open your website link instead");
+    if(!check.ok) throw new Error("status page returned HTTP "+check.status);
+    const state=await check.json().catch(()=>{ throw new Error("status page is not the Flow server (wrong folder or protected deployment)"); });
+    let code="";
+    if(state.locked){
+      try{ code=localStorage.getItem("flowCode")||""; }catch(e){}
+      if(!code){ code=(prompt("Enter Flow access code")||"").trim(); try{ localStorage.setItem("flowCode",code); }catch(e){} }
+    }
+    if(!state.ready){
+      $("up").textContent="Server has no key"; $("tray-up").textContent="KEY"; bar("b-up",0);
+      connectionNote("key", "// The server has no API key yet. Add it in your hosting settings and redeploy.");
+      sendBtn.disabled=true; return;
+    }
+    sample=async(messages,options={})=>{
+      const response=await fetch("/api/chat",{method:"POST",headers:{"Content-Type":"application/json","x-access-code":code},body:JSON.stringify({messages})});
+      const data=await response.json().catch(()=>({}));
+      if(response.status===401){ try{ localStorage.removeItem("flowCode"); }catch(e){} throw new Error("Wrong access code. Refresh and try again."); }
+      if(!response.ok) throw new Error(data.error||"OpenAI could not answer. Check your API key and connection.");
+      const text=String(data.reply||"").trim();
+      if(!text) throw new Error("OpenAI returned an empty answer.");
+      if(options.onText) options.onText({text});
+      return {text};
+    };
+    $("up").textContent="Linked"; $("tray-up").textContent="LINK"; bar("b-up",100);
+    sendBtn.disabled=false; connectionNote("online", "// Connected. Type a message or use Voice.");
+  }catch(error){
+    sample=null; $("up").textContent="Offline"; $("tray-up").textContent="OFF"; bar("b-up",0);
+    connectionNote("offline", "// Flow’s server is unreachable: "+(error&&error.message?error.message:"no response")+".");
+    sendBtn.disabled=true;
+  }
+}
+connectFlow();
+setInterval(()=>{if(!sample)connectFlow();},5000);
+
+function note(t){ const d=document.createElement("div"); d.className="note"; d.textContent=t; log.appendChild(d); }
+function add(role,text){
+  const d=document.createElement("div"); d.className="msg "+role;
+  const l=document.createElement("small"); l.textContent = role==="user"?"USER":"FLOW";
+  const b=document.createElement("span"); b.textContent=text;
+  d.append(l,b); log.appendChild(d); log.scrollTop=log.scrollHeight; return b;
+}
+
+async function send(){
+  const text=input.value.trim();
+  if(!text||busy||!sample) return;
+  $("hello")?.remove();
+  input.value=""; input.style.height="auto";
+  add("user",text);
+  history.push({role:"user",content:text}); stats();
+  const msgs=history.map((m,i)=>i===0?{role:m.role,content:PERSONA+"\n\n"+m.content}:m);
+  const out=add("bot","…");
+  setBusy(true); const t0=Date.now();
+  try{
+    const res=await sample(msgs,{cache:false,onText:({text})=>{out.textContent=text;log.scrollTop=log.scrollHeight;}});
+    out.textContent=res.text; history.push({role:"assistant",content:res.text}); replies++; lastMs=Date.now()-t0;
+  }catch(e){
+    out.textContent=e.code==="rate_limited"?"// Rate limit reached. Retry shortly.":e.code==="not_granted"?"// Permission declined.":"// "+(e.message||"AI request failed. Check the server and API key.");
+    history.pop();
+  }
+  setBusy(false); stats(); input.focus();
+  if(voiceOn){ const last=history[history.length-1]; if(last&&last.role==="assistant"){ showVoice("speak"); await speak(last.content); showVoice("idle"); } listen(); }
+}
+sendBtn.onclick=send;
+input.addEventListener("keydown",e=>{ if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();send();} });
+input.addEventListener("input",()=>{ bar("b-buf",input.value.length/5); input.style.height="auto"; input.style.height=Math.min(input.scrollHeight,120)+"px"; });
+$("clear").onclick=()=>{ history=[]; replies=0; lastMs=0; sessionStart=Date.now(); log.innerHTML='<div class="note" id="hello">// Awaiting input. Say hello to begin.</div>'; stats(); };
+$("tb-new").onclick=()=>$("clear").click();
+
+/* ---- Voice system ---- */
+const SR=window.SpeechRecognition||window.webkitSpeechRecognition, synth=window.speechSynthesis;
+let voiceOn=false, rec=null, voice=null;
+function pickVoice(){ const vs=synth?synth.getVoices():[];
+  voice = vs.find(v=>/en-GB/i.test(v.lang)&&/daniel|arthur|george|ryan|male/i.test(v.name)&&!/female/i.test(v.name)) || vs.find(v=>/en-GB/i.test(v.lang)) || vs.find(v=>/^en/i.test(v.lang)) || null; }
+if(synth){ pickVoice(); synth.onvoiceschanged=pickVoice; }
+function speak(text){
+  if(!synth) return Promise.resolve();
+  return new Promise(res=>{ const u=new SpeechSynthesisUtterance(String(text).replace(/[*_#`]/g,""));
+    if(voice){ u.voice=voice; u.lang=voice.lang; } else u.lang="en-GB";
+    let done=false; const fin=()=>{ if(!done){ done=true; res(); } };
+    u.rate=.97; u.pitch=.8; u.onend=u.onerror=fin; setTimeout(fin,2500+String(text).length*95); synth.cancel(); synth.speak(u); });
+}
+function showVoice(s){
+  hud.classList.toggle("listening",s==="listen"); hud.classList.toggle("speaking",s==="speak"); $("g-voice").textContent=s==="listen"?"LIVE":s==="speak"?"TALK":"READY"; $("ring-voice").style.setProperty("--progress",s==="idle"?"18%":"100%");
+  input.placeholder = s==="listen" ? "Listening… speak now" : "Message Flow…";
+  if(!busy){ const t=s==="listen"?"Listening":s==="speak"?"Speaking":"Online";
+    $("st").innerHTML='<span class="dot"></span>'+t; $("tray-st").textContent=s==="listen"?"LISTEN":s==="speak"?"SPEAK":"ONLINE"; }
+}
+function stopVoice(msg){
+  voiceOn=false; try{ rec&&rec.abort(); }catch(e){} if(synth) synth.cancel();
+  showVoice("idle"); $("mic").classList.remove("on"); $("tb-voice").classList.remove("on"); if(msg) note(msg);
+}
+function listen(){
+  if(!voiceOn||!SR||busy) return;
+  rec=new SR(); rec.lang=navigator.language||"en-US"; rec.interimResults=true; rec.continuous=false;
+  let finalText="";
+  rec.onstart=()=>showVoice("listen");
+  rec.onresult=e=>{ let t=""; for(const r of e.results){ t+=r[0].transcript; if(r.isFinal) finalText=t; } input.value=t; };
+  rec.onerror=e=>{
+    if(e.error==="not-allowed"||e.error==="service-not-allowed") stopVoice("// Microphone access was blocked. Allow the mic, or open the page in its own browser tab.");
+    else if(e.error==="audio-capture") stopVoice("// No microphone found.");
+    else if(e.error!=="no-speech"&&e.error!=="aborted") stopVoice("// Voice error: "+e.error+". Try opening the page in its own tab in Chrome.");
+  };
+  rec.onend=async()=>{ showVoice("idle"); if(!voiceOn) return;
+    const t=(finalText||input.value).trim();
+    if(t){ input.value=t; await send(); } else setTimeout(listen,300); };
+  try{ rec.start(); }catch(e){}
+}
+function toggleVoice(){
+  if(voiceOn){ stopVoice(); return; }
+  if(!SR){ note("// Voice input isn’t supported in this browser. Try Chrome or Edge."); return; }
+  if(!sample){ note("// Claude chat is not connected yet."); return; }
+  voiceOn=true; $("mic").classList.add("on"); $("tb-voice").classList.add("on"); $("hello")?.remove();
+  if(synth){ try{ synth.speak(new SpeechSynthesisUtterance("")); }catch(e){} }
+  listen();
+}
+$("mic").onclick=toggleVoice; $("tb-voice").onclick=toggleVoice;
+const headingReadout=$("heading"), cardinalReadout=$("cardinal"), needle=$("needle");
+document.querySelectorAll("[data-bearing]").forEach(button=>button.onclick=()=>{
+  const bearing=Number(button.dataset.bearing);
+  headingReadout.textContent=String(bearing).padStart(3,"0")+"°";
+  cardinalReadout.textContent=button.dataset.cardinal;
+  needle.style.transform="rotate("+bearing+"deg)";
+  document.querySelectorAll("[data-bearing]").forEach(item=>item.classList.toggle("selected",item===button));
+});
+$("ask-direction").onclick=()=>{
+  input.value="Using my selected heading "+cardinalReadout.textContent+" ("+headingReadout.textContent+"), help me navigate toward: ";
+  input.dispatchEvent(new Event("input")); input.focus();
+};const IDEAS=["Tell me a fun fact I probably don’t know.","Explain how black holes work in simple terms.","Give me a 3-step plan to learn a new skill.","Help me brainstorm names for a new project."]; let ideaI=0;
+$("tb-idea").onclick=()=>{ input.value=IDEAS[ideaI++%IDEAS.length]; input.dispatchEvent(new Event("input")); input.focus(); };
+function fillTask(text){ input.value=text; input.dispatchEvent(new Event("input")); input.focus(); }
+document.querySelectorAll("[data-flow-task]").forEach(button=>button.onclick=()=>fillTask(button.dataset.prompt));
+$("tb-summary").onclick=()=>fillTask(history.length?"Summarize our conversation in three concise bullet points.":"Give me a concise summary of: ");
+$("tb-plan").onclick=()=>fillTask("Help me make a practical step-by-step plan for: ");
+$("tb-explain").onclick=()=>fillTask("Explain this simply and give one example: ");
+$("tb-draft").onclick=()=>fillTask("Help me write or improve this: ");$("tb-copy").onclick=async()=>{ const b=$("tb-copy"); const txt=history.map(m=>(m.role==="user"?"USER: ":"FLOW: ")+m.content).join("\n\n"); try{ if(!txt) throw 0; await navigator.clipboard.writeText(txt); b.textContent="Copied"; }catch(e){ b.textContent=txt?"Blocked":"Empty"; } setTimeout(()=>b.textContent="Copy",1500); };
+$("tb-full").onclick=()=>{ Promise.resolve().then(()=>document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen()).catch(()=>{ const b=$("tb-full"); b.textContent="Blocked"; setTimeout(()=>b.textContent="Full",1500); }); };
+</script>
+
+<script>
+(() => {
+ const clock=document.getElementById("g-time"), ring=document.getElementById("ring-time");
+ const updateClock=()=>{const now=new Date();clock.textContent=now.toLocaleTimeString([],{hour:"2-digit",minute:"2-digit",hour12:false});ring.style.setProperty("--progress",now.getSeconds()/60*100+"%")};
+ updateClock();setInterval(updateClock,1000);
+ const dash=document.getElementById("welcome-dashboard"), status=document.getElementById("voice-meter-status"), hint=document.getElementById("voice-meter-hint"), value=document.getElementById("voice-meter-value"), bars=[...document.querySelectorAll("#voice-meter-bars i")], mic=document.getElementById("mic");
+ let stream=null,ctx=null,frame=0,runId=0;
+ function stop(label="MIC OFF",help="SELECT VOICE TO START"){
+  runId++;cancelAnimationFrame(frame);if(stream)stream.getTracks().forEach(t=>t.stop());stream=null;
+  if(ctx){const old=ctx;ctx=null;old.close().catch(()=>{})}
+  dash.classList.remove("meter-active");status.textContent=label;hint.textContent=help;value.textContent="0%";
+  bars.forEach(b=>{b.style.height="2px";b.style.opacity=".34"});
+ }
+ async function start(){
+  if(stream)return;const id=++runId;dash.classList.add("meter-active");status.textContent="REQUESTING MIC";hint.textContent="ALLOW MICROPHONE ACCESS";let audio=null;
+  try{
+   const AC=window.AudioContext||window.webkitAudioContext;if(!navigator.mediaDevices?.getUserMedia||!AC)throw Error("Meter unavailable");
+   audio=new AC();audio.resume().catch(()=>{});const input=await navigator.mediaDevices.getUserMedia({audio:true});
+   if(id!==runId||!mic.classList.contains("on")){input.getTracks().forEach(t=>t.stop());audio.close().catch(()=>{});return}
+   ctx=audio;stream=input;const analyser=ctx.createAnalyser();analyser.fftSize=512;analyser.smoothingTimeConstant=.72;ctx.createMediaStreamSource(input).connect(analyser);
+   const samples=new Float32Array(analyser.fftSize);status.textContent="MIC LIVE";hint.textContent="SPEAK TO TEST THE METER";
+   const draw=()=>{if(id!==runId||!ctx)return;analyser.getFloatTimeDomainData(samples);let sum=0;for(const x of samples)sum+=x*x;const rms=Math.sqrt(sum/samples.length);
+    bars.forEach((b,i)=>{const a=Math.floor(i*samples.length/bars.length),z=Math.floor((i+1)*samples.length/bars.length);let peak=0;for(let j=a;j<z;j++)peak=Math.max(peak,Math.abs(samples[j]));b.style.height=(2+Math.min(1,peak*3)*14)+"px";b.style.opacity=(.35+Math.min(.65,peak*2.4)).toFixed(2)});
+    value.textContent=Math.min(100,Math.round(rms*800))+"%";frame=requestAnimationFrame(draw)};
+   draw();
+  }catch(e){if(audio&&audio!==ctx)audio.close().catch(()=>{});if(id===runId){dash.classList.remove("meter-active");status.textContent="MIC BLOCKED";hint.textContent="CHECK BROWSER MIC PERMISSION";value.textContent="0%"}}
+ }
+ for(const id of ["mic","tb-voice"]){const b=document.getElementById(id),old=b.onclick;b.onclick=function(e){const before=mic.classList.contains("on"),result=old.call(this,e),after=mic.classList.contains("on");if(!before&&after)start();if(before&&!after)stop();return result}}
+ setInterval(()=>{if(stream&&!mic.classList.contains("on"))stop()},350);
+})();
+</script>
+
+<script>
+(() => {
+  const cv=document.getElementById("earth"); if(!cv) return;
+  const ctx=cv.getContext("2d"), hud=document.getElementById("hud");
+  // Rough continent outlines as [lon,lat] points
+  const LAND=[
+   [[-168,65],[-140,70],[-110,72],[-80,70],[-62,58],[-56,48],[-66,44],[-76,35],[-81,30],[-80,25],[-90,29],[-97,26],[-97,20],[-87,21],[-88,15],[-83,10],[-79,8],[-83,8],[-92,14],[-105,20],[-112,29],[-118,33],[-124,40],[-124,48],[-135,58],[-150,60],[-165,60]],
+   [[-73,78],[-60,82],[-30,83],[-20,72],[-43,60],[-55,68]],
+   [[-78,8],[-72,12],[-62,10],[-50,0],[-35,-6],[-39,-15],[-48,-26],[-58,-38],[-65,-42],[-68,-52],[-72,-54],[-74,-45],[-71,-30],[-70,-18],[-81,-5],[-80,0],[-77,4]],
+   [[-10,36],[-9,43],[-1,46],[-5,48],[2,51],[8,54],[10,58],[5,62],[15,69],[30,71],[60,70],[80,73],[110,77],[140,72],[170,70],[180,66],[160,60],[155,52],[140,48],[135,43],[128,38],[126,35],[122,30],[120,24],[108,21],[106,10],[100,13],[103,2],[98,8],[95,17],[88,22],[80,15],[77,8],[73,17],[67,25],[57,25],[56,27],[50,30],[48,28],[51,24],[56,20],[52,16],[43,13],[35,28],[34,31],[36,36],[28,37],[26,40],[23,36],[19,40],[16,38],[12,44],[8,44],[3,43],[-1,37]],
+   [[-17,21],[-10,30],[-6,36],[10,37],[20,33],[32,31],[34,28],[43,12],[51,12],[41,-3],[40,-15],[35,-25],[27,-34],[18,-34],[12,-18],[13,-5],[9,3],[-8,4],[-17,14]],
+   [[114,-22],[122,-18],[131,-12],[137,-12],[142,-11],[146,-19],[153,-26],[150,-37],[141,-38],[131,-31],[115,-34]],
+   [[-5,50],[1,51],[-2,57],[-5,58],[-6,54]],
+   [[130,31],[141,36],[145,44],[141,42],[135,34]],
+   [[44,-25],[50,-15],[49,-12],[44,-17]],
+   [[109,1],[117,7],[119,1],[116,-4],[110,-3]],
+   [[95,5],[98,4],[106,-3],[105,-6],[101,-3]],
+   [[-180,-70],[180,-70],[180,-90],[-180,-90]]
+  ];
+  // Rasterise outlines into a 360x180 land mask
+  const m=document.createElement("canvas"); m.width=360; m.height=180;
+  const mc=m.getContext("2d"); mc.fillStyle="#fff";
+  LAND.forEach(p=>{ mc.beginPath(); p.forEach(([lo,la],i)=>{ const x=lo+180,y=90-la; i?mc.lineTo(x,y):mc.moveTo(x,y); }); mc.closePath(); mc.fill(); });
+  const mask=mc.getImageData(0,0,360,180).data;
+  const isLand=(lat,lon)=>{ const x=Math.min(359,Math.max(0,Math.floor(lon+180))), y=Math.min(179,Math.max(0,Math.floor(90-lat))); return mask[(y*360+x)*4+3]>128; };
+  // Evenly spread points on a sphere (Fibonacci), keep land points
+  const N=4200, pts=[], ga=Math.PI*(3-Math.sqrt(5));
+  for(let i=0;i<N;i++){
+    const y=1-2*(i+.5)/N, r=Math.sqrt(1-y*y), th=ga*i;
+    const lat=Math.asin(y), lon=Math.atan2(Math.sin(th)*r, Math.cos(th)*r);
+    const land=isLand(lat*180/Math.PI, lon*180/Math.PI);
+    pts.push({lat,lon,land});
+  }
+  let size=0, dpr=1;
+  function fit(){ dpr=Math.min(2,window.devicePixelRatio||1); size=Math.max(40,Math.round(cv.clientWidth*dpr)); cv.width=cv.height=size; }
+  fit(); window.addEventListener("resize",fit);
+  const tilt=23.5*Math.PI/180, ct=Math.cos(tilt), st=Math.sin(tilt);
+  const still=window.matchMedia&&matchMedia("(prefers-reduced-motion: reduce)").matches;
+  let rot=0, last=performance.now();
+  function frame(now){
+    const dt=Math.min(.05,(now-last)/1000); last=now;
+    const c=hud.classList;
+    const speed=c.contains("busy")?1.3:c.contains("speaking")?.8:c.contains("listening")?.5:.3;
+    if(!still) rot+=speed*dt;
+    const R=size/2, rad=R*.94;
+    ctx.clearRect(0,0,size,size);
+    // ocean body + atmosphere
+    let g=ctx.createRadialGradient(R*.8,R*.75,rad*.1,R,R,rad);
+    g.addColorStop(0,"rgba(30,110,200,.55)"); g.addColorStop(1,"rgba(4,24,64,.9)");
+    ctx.beginPath(); ctx.arc(R,R,rad,0,7); ctx.fillStyle=g; ctx.fill();
+    ctx.lineWidth=Math.max(1,size/90); ctx.strokeStyle="rgba(92,236,255,.85)"; ctx.stroke();
+    const dot=Math.max(1,size/95);
+    for(const p of pts){
+      const lo=p.lon+rot, cl=Math.cos(p.lat);
+      let x=cl*Math.sin(lo), y=Math.sin(p.lat), z=cl*Math.cos(lo);
+      const y2=y*ct-z*st, z2=y*st+z*ct;           // axial tilt
+      if(z2<=0 && !p.land) continue;
+      if(z2>0){
+        const sh=.35+.65*z2;
+        ctx.fillStyle=p.land?`rgba(${90+120*z2|0},${230},${150+50*z2|0},${.55+.45*sh})`:`rgba(60,150,230,${.10+.12*z2})`;
+        ctx.fillRect(R+x*rad-dot/2, R-y2*rad-dot/2, dot, dot);
+      } else {
+        ctx.fillStyle="rgba(92,236,255,.12)";                 // far side shows through faintly
+        ctx.fillRect(R+x*rad-dot/3, R-y2*rad-dot/3, dot*.66, dot*.66);
+      }
+    }
+    // soft highlight
+    g=ctx.createRadialGradient(R*.7,R*.65,0,R*.7,R*.65,rad);
+    g.addColorStop(0,"rgba(190,245,255,.22)"); g.addColorStop(.6,"rgba(190,245,255,0)");
+    ctx.beginPath(); ctx.arc(R,R,rad,0,7); ctx.fillStyle=g; ctx.fill();
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+})();
+</script>
+
+<script>
+(() => {
+  const hud=document.getElementById("hud"), box=document.getElementById("vmeter"), wrap=document.getElementById("vm-bars"),
+        stEl=document.getElementById("vm-state"), pEl=document.getElementById("vm-pct"), src=document.getElementById("voice-meter-value");
+  if(!box||!wrap) return;
+  const N=36, bars=[]; for(let i=0;i<N;i++){ const b=document.createElement("i"); wrap.appendChild(b); bars.push(b); }
+  const still=window.matchMedia&&matchMedia("(prefers-reduced-motion: reduce)").matches;
+  let lvl=0;
+  function tick(now){
+    const t=now/1000, c=hud.classList;
+    const listening=c.contains("listening"), speaking=c.contains("speaking"), busy=c.contains("busy");
+    let target=0, label="VOICE IDLE";
+    if(speaking){ label="FLOW SPEAKING"; target=.42+.28*Math.sin(t*7.1)*Math.sin(t*2.3)+.18*Math.sin(t*13.7); }
+    else if(listening){ label="LISTENING"; target=Math.min(1,(parseInt(src&&src.textContent)||0)/100); }
+    else if(busy){ label="THINKING"; target=.06+.04*Math.sin(t*5); }
+    target=Math.max(0,Math.min(1,target));
+    lvl+= (target-lvl)*(target>lvl?.45:.12);
+    box.classList.toggle("out",speaking);
+    stEl.textContent=label; pEl.textContent=Math.round(lvl*100)+"%";
+    for(let i=0;i<N;i++){
+      const x=(i-(N-1)/2)/((N-1)/2), env=1-.55*x*x;               // taller in the middle
+      const wob=still?.8:.55+.45*Math.sin(t*9+i*1.7)*Math.sin(t*4.3+i*.9);
+      const h=2+Math.max(0,lvl*env*wob)*22;
+      bars[i].style.height=h.toFixed(1)+"px"; bars[i].style.opacity=(.3+.7*Math.min(1,lvl*1.4)).toFixed(2);
+    }
+    requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+})();
+</script>
+</body>
+</html>
