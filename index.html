@@ -279,6 +279,18 @@ body::-webkit-scrollbar-thumb{background:linear-gradient(#5cecff,#2879ff);border
 #vm-wake,#vm-rl{background:transparent;border:1px solid rgba(92,236,255,.55);color:var(--cy);font:inherit;letter-spacing:.08em;padding:4px 6px;cursor:pointer;white-space:nowrap}
 #vm-rl{max-width:128px;background:#04122a}
 #vm-wake.on{background:rgba(92,236,255,.22)}
+/* App launcher */
+.app-panel #appGrid{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
+.app-panel .appwrap{display:inline-flex;align-items:stretch}
+.app-panel a.app{display:inline-block;padding:6px 9px;border:1px solid rgba(92,236,255,.5);color:var(--cy);text-decoration:none;font:11px "Share Tech Mono",monospace;letter-spacing:.06em;background:rgba(2,10,22,.55)}
+.app-panel a.app:hover{background:rgba(92,236,255,.18)}
+.app-panel .appx{border:1px solid rgba(92,236,255,.35);border-left:0;background:transparent;color:var(--muted);font:10px monospace;padding:0 6px;cursor:pointer}
+.app-panel .appx:hover{color:#ff8a8a}
+.app-ctl{display:flex;gap:6px}
+.app-ctl button{background:transparent;border:1px solid rgba(92,236,255,.55);color:var(--cy);font:10px "Share Tech Mono",monospace;letter-spacing:.12em;padding:6px 10px;cursor:pointer}
+.app-ctl button:hover{background:rgba(92,236,255,.15)}
+#appMsg{margin-top:8px;font:11px "Share Tech Mono",monospace;color:var(--muted);line-height:1.5}
+.msg.bot a{color:#5cecff;text-decoration:underline}
 </style>
 </head>
 <body>
@@ -403,7 +415,14 @@ body::-webkit-scrollbar-thumb{background:linear-gradient(#5cecff,#2879ff);border
         <button class="task-link" data-flow-task data-prompt="Explain this in simple terms with an example: "><i class="node"></i><span>Explain</span><b>›</b></button>
         <button class="task-link" data-flow-task data-prompt="Help me solve this step by step: "><i class="node"></i><span>Solve</span><b>›</b></button>
       </div>
-    </div>  </aside>
+    </div>
+    <div class="panel app-panel" id="appPanel">
+      <h2 class="orb">App Launcher</h2>
+      <div id="appGrid"></div>
+      <div class="app-ctl"><button id="appAdd" type="button">+ ADD APP</button></div>
+      <div id="appMsg">Say or type “open Instagram”, “open YouTube and Gmail”, or “search lofi on YouTube”.</div>
+    </div>
+  </aside>
 </div>
 
 <nav class="taskbar">
@@ -1201,13 +1220,16 @@ $("tb-full").onclick=()=>{ Promise.resolve().then(()=>document.fullscreenElement
     document.getElementById("hello")?.remove();
     input.value=""; input.style.height="auto";
     add("user",userText); const out=add("bot","…");
-    let reply; try{ reply=await produce(); }catch(e){ reply=isM()?"Entho thettu patti, AT.":"Something went wrong there, AT."; }
-    out.textContent=reply; log.scrollTop=log.scrollHeight;
+    let reply, links=[]; try{ const r=await produce(); if(typeof r==="string") reply=r; else { reply=r.text; links=r.links||[]; } }catch(e){ reply=isM()?"Entho thettu patti, AT.":"Something went wrong there, AT."; }
+    out.textContent=reply;
+    links.forEach(l=>{ out.append(" "); const a=document.createElement("a"); a.href=l.url; a.target="_blank"; a.rel="noopener"; a.textContent="▶ "+l.name; out.appendChild(a); });
+    log.scrollTop=log.scrollHeight;
     history.push({role:"user",content:userText},{role:"assistant",content:reply}); saveHist(); stats();
     if(!quiet&&(voiceOn||autoSpeak)){ showVoice("speak"); await speak(reply); showVoice("idle"); }
     if(voiceOn) listen();
   }
 
+  window.flowRespond=respond;
   const baseLC=window.localCommand;
   window.localCommand=async function(text){
     if(/[\u0D00-\u0D7F]/.test(text)&&!isM()) setLang("manglish");   // Malayalam script heard → Manglish replies
@@ -1236,6 +1258,131 @@ $("tb-full").onclick=()=>{ Promise.resolve().then(()=>document.fullscreenElement
     if(K==="near"){ await respond(text,async()=>{ mapEl.scrollIntoView({behavior:"smooth",block:"center"}); return actFind(c.arg,true); }); return true; }
     if(K==="place"){ await respond(text,async()=>{ mapEl.scrollIntoView({behavior:"smooth",block:"center"}); return actFind(c.arg,false); }); return true; }
     return false;
+  };
+})();
+</script>
+<script>
+(() => {
+  const ls={ get(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } }, set(k,v){ try{ localStorage.setItem(k,v); }catch(e){} } };
+  const isM=()=>lang==="manglish";
+  const grid=document.getElementById("appGrid"), msg=document.getElementById("appMsg");
+
+  // ---------- built-in apps and sites (opened in a new browser tab; you stay logged in as usual)
+  const BUILTIN=[
+    ["Instagram",["instagram","insta","ig"],"https://www.instagram.com/"],
+    ["YouTube",["youtube","yt","you tube"],"https://www.youtube.com/"],
+    ["WhatsApp",["whatsapp","whatsapp web","watsapp"],"https://web.whatsapp.com/"],
+    ["Gmail",["gmail","mail","email","g mail"],"https://mail.google.com/"],
+    ["Google",["google"],"https://www.google.com/"],
+    ["Google Maps",["google maps","maps"],"https://www.google.com/maps"],
+    ["Facebook",["facebook","fb"],"https://www.facebook.com/"],
+    ["X (Twitter)",["twitter","x","x.com"],"https://x.com/"],
+    ["Telegram",["telegram"],"https://web.telegram.org/"],
+    ["Spotify",["spotify"],"https://open.spotify.com/"],
+    ["Netflix",["netflix"],"https://www.netflix.com/"],
+    ["LinkedIn",["linkedin"],"https://www.linkedin.com/"],
+    ["Reddit",["reddit"],"https://www.reddit.com/"],
+    ["GitHub",["github","git hub"],"https://github.com/"],
+    ["Snapchat",["snapchat"],"https://www.snapchat.com/"],
+    ["Pinterest",["pinterest"],"https://www.pinterest.com/"],
+    ["Amazon",["amazon"],"https://www.amazon.in/"],
+    ["Flipkart",["flipkart"],"https://www.flipkart.com/"],
+    ["Wikipedia",["wikipedia","wiki"],"https://en.wikipedia.org/"],
+    ["Google Drive",["google drive","drive"],"https://drive.google.com/"],
+    ["Calendar",["calendar","google calendar"],"https://calendar.google.com/"],
+    ["Claude",["claude"],"https://claude.ai/"],
+    ["Vercel",["vercel"],"https://vercel.com/dashboard"]
+  ];
+  const SITES={ // "search X on SITE"
+    youtube:q=>"https://www.youtube.com/results?search_query="+encodeURIComponent(q),
+    google:q=>"https://www.google.com/search?q="+encodeURIComponent(q),
+    amazon:q=>"https://www.amazon.in/s?k="+encodeURIComponent(q),
+    flipkart:q=>"https://www.flipkart.com/search?q="+encodeURIComponent(q),
+    wikipedia:q=>"https://en.wikipedia.org/w/index.php?search="+encodeURIComponent(q),
+    spotify:q=>"https://open.spotify.com/search/"+encodeURIComponent(q),
+    reddit:q=>"https://www.reddit.com/search/?q="+encodeURIComponent(q),
+    github:q=>"https://github.com/search?q="+encodeURIComponent(q),
+    maps:q=>"https://www.google.com/maps/search/?api=1&query="+encodeURIComponent(q),
+    googlemaps:q=>"https://www.google.com/maps/search/?api=1&query="+encodeURIComponent(q)
+  };
+  SITES.yt=SITES.youtube;
+
+  let custom=[]; try{ custom=JSON.parse(ls.get("flowApps")||"[]").filter(a=>a&&a.name&&/^https?:\/\//i.test(a.url)); }catch(e){}
+  const saveCustom=()=>ls.set("flowApps",JSON.stringify(custom.slice(-30)));
+  const norm=s=>String(s).toLowerCase().replace(/[^a-z0-9. ]/g," ").replace(/\b(?:the|my|app|application|website|site|page|account)\b/g," ").replace(/\s+/g," ").trim();
+  const key=s=>norm(s).replace(/\s+/g,"");
+  const allApps=()=>custom.map(c=>({name:c.name,keys:[key(c.name)],url:c.url,custom:true})).concat(BUILTIN.map(([n,al,u])=>({name:n,keys:al.map(key).concat(key(n)),url:u})));
+  const fixUrl=u=>{ u=String(u).trim(); if(!/^https?:\/\//i.test(u)) u="https://"+u; try{ const x=new URL(u); return /^https?:$/.test(x.protocol)?x.href:null; }catch(e){ return null; } };
+  function resolve(s){
+    const k=key(s); if(!k) return null;
+    const f=allApps().find(a=>a.keys.includes(k)); if(f) return f;
+    const raw=String(s).trim().toLowerCase();
+    if(/^[a-z0-9-]+(\.[a-z0-9-]+)+(\/\S*)?$/.test(raw)){ const u=fixUrl(raw); if(u) return {name:raw.replace(/\/$/,""),url:u}; }
+    return null;
+  }
+
+  // ---------- launcher panel
+  function paint(){
+    grid.innerHTML="";
+    allApps().forEach(a=>{
+      const w=document.createElement("span"); w.className="appwrap";
+      const l=document.createElement("a"); l.className="app"; l.href=a.url; l.target="_blank"; l.rel="noopener"; l.textContent=a.name; w.appendChild(l);
+      if(a.custom){ const x=document.createElement("button"); x.type="button"; x.className="appx"; x.title="Remove "+a.name; x.textContent="✕"; x.onclick=()=>{ custom=custom.filter(c=>key(c.name)!==key(a.name)); saveCustom(); paint(); }; w.appendChild(x); }
+      grid.appendChild(w);
+    });
+  }
+  paint();
+  document.getElementById("appAdd").onclick=()=>{
+    const n=(prompt("App or site name (for example: Notion)")||"").trim(); if(!n) return;
+    const u=fixUrl(prompt("Web address for "+n+" (for example: notion.so)")||""); if(!u){ msg.textContent="That web address wasn’t valid."; return; }
+    custom=custom.filter(c=>key(c.name)!==key(n)); custom.push({name:n.slice(0,30),url:u}); saveCustom(); paint(); msg.textContent="Added "+n+".";
+  };
+
+  // ---------- opening things
+  function openUrl(a){ let w=null; try{ w=window.open(a.url,"_blank"); }catch(e){} if(w){ try{ w.opener=null; }catch(e){} return true; } return false; }
+
+  // ---------- command parser (typed or spoken)
+  const OPEN=/^(?:please\s+)?(?:open|launch|start|run|go\s+to|take\s+me\s+to|show\s+me|switch\s+to)\s+(.+?)(?:\s+in\s+(?:the\s+|a\s+)?(?:new\s+)?(?:tab|browser|chrome|edge))?$/i;
+  const OPEN_ML=/^(.+?)\s+(?:open\s+(?:cheyy?(?:u|oo)?|aakk?(?:u|oo)?)|thurakk(?:u|oo)|thurannu\s+tha(?:r|a)?)$/i;
+  const SEARCH=/^(?:please\s+)?(?:search|find|look\s*up|play|watch|show\s+me)\s+(.+?)\s+(?:on|in|at)\s+(?:the\s+)?([a-z .]+)$/i;
+  const ADD=/^(?:please\s+)?add\s+(?:an?\s+)?(?:app|shortcut)\s+(.+?)\s+((?:https?:\/\/)?[a-z0-9-]+(?:\.[a-z0-9-]+)+\S*)$/i;
+  const REM=/^(?:please\s+)?(?:remove|delete)\s+(?:the\s+)?(?:app|shortcut)\s+(.+)$/i;
+  const clean=t=>t.replace(/^(?:(?:hey|hi|hello|okay|ok|yo)[\s,]+)?(?:flow|floor|flo)\b[\s,.:!?-]*/i,"").replace(/[.!?]+$/,"").trim();
+  function appCmd(t){
+    const c=clean(t); let m;
+    if((m=c.match(ADD))) return {k:"add",name:m[1].trim(),url:m[2]};
+    if((m=c.match(REM))) return {k:"rem",name:m[1].trim()};
+    if((m=c.match(SEARCH))){ const sk=key(m[2]); if(SITES[sk]) return {k:"search",site:m[2].trim(),sk,q:m[1].trim()}; }
+    let target=null; if((m=c.match(OPEN))) target=m[1]; else if((m=c.match(OPEN_ML))) target=m[1];
+    if(target){
+      const parts=target.split(/\s*(?:,|\band\b|\bpinne\b|\bkoodi\b)\s*/i).filter(Boolean);
+      const apps=parts.map(resolve);
+      if(apps.length&&apps.every(Boolean)) return {k:"open",apps};
+    }
+    return null;
+  }
+  const baseLooks=window.looksLikeCommand;
+  window.looksLikeCommand=t=>(baseLooks?baseLooks(t):false)||!!appCmd(t);
+
+  const prev=window.localCommand;
+  window.localCommand=async function(text){
+    const a=appCmd(text);
+    if(!a) return prev(text);
+    await flowRespond(text,async()=>{
+      if(a.k==="add"){ const u=fixUrl(a.url); if(!u) return isM()?"Aa web address sheriyalla, AT.":"That web address doesn't look right, AT.";
+        custom=custom.filter(c=>key(c.name)!==key(a.name)); custom.push({name:a.name.slice(0,30),url:u}); saveCustom(); paint();
+        return isM()?a.name+" add cheythu, AT. Ini “open "+a.name+"” ennu paranjaal mathi.":"Added "+a.name+", AT. Say “open "+a.name+"” any time."; }
+      if(a.k==="rem"){ const before=custom.length; custom=custom.filter(c=>key(c.name)!==key(a.name)); saveCustom(); paint();
+        return custom.length<before?(isM()?a.name+" remove cheythu, AT.":"Removed "+a.name+", AT."):(isM()?"Aa app ente list-il illa, AT.":"I don't have a custom app called "+a.name+", AT."); }
+      let items=[];
+      if(a.k==="search"){ const u=SITES[a.sk](a.q); items=[{name:a.site[0].toUpperCase()+a.site.slice(1),url:u}]; }
+      else items=a.apps;
+      const blocked=items.filter(it=>!openUrl(it));
+      const names=items.map(i=>i.name).join(" and ");
+      const verb=a.k==="search"?(isM()?names+"-il “"+a.q+"” theduunnu, AT.":"Searching "+names+" for “"+a.q+"”, AT."):(isM()?names+" thurakkunnu, AT.":"Opening "+names+", AT.");
+      return blocked.length?{text:(isM()?"Browser popup block cheythu, AT. Thazhe tap cheyyoo:":"Your browser blocked the pop-up, AT. Tap to open:"),links:blocked}:verb;
+    });
+    return true;
   };
 })();
 </script>
