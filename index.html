@@ -291,9 +291,56 @@ body::-webkit-scrollbar-thumb{background:linear-gradient(#5cecff,#2879ff);border
 .app-ctl button:hover{background:rgba(92,236,255,.15)}
 #appMsg{margin-top:8px;font:11px "Share Tech Mono",monospace;color:var(--muted);line-height:1.5}
 .msg.bot a{color:#5cecff;text-decoration:underline}
+/* ===== Flow HUD realism + themes ===== */
+.themes{display:flex;gap:7px;align-items:center;margin-left:auto;padding:0 8px;flex:0 0 auto}
+.themes button{width:16px;height:16px;border-radius:50%;border:1px solid rgba(255,255,255,.55);cursor:pointer;padding:0;flex:0 0 auto}
+.themes button.on{outline:2px solid #fff;outline-offset:2px}
+.taskbar .tray{margin-left:6px}
+#holo{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;opacity:.06;z-index:0;-webkit-mask-image:radial-gradient(ellipse at 50% 38%,#000 12%,transparent 78%);mask-image:radial-gradient(ellipse at 50% 38%,#000 12%,transparent 78%)}
+#holo-sweep{position:fixed;left:0;right:0;top:-22%;height:20%;pointer-events:none;z-index:3;background:linear-gradient(180deg,transparent,rgba(92,236,255,.07),rgba(92,236,255,.13),transparent);animation:holosweep 8s linear infinite}
+@keyframes holosweep{to{top:112%}}
+.panel{animation:holoflick 11s infinite}
+@keyframes holoflick{0%,93%,100%{opacity:1}94%{opacity:.86}95%{opacity:1}96%{opacity:.92}97%{opacity:1}}
+.reactor{filter:drop-shadow(0 0 14px rgba(40,160,255,.35))}
+.spin3{transform-origin:100px 100px;animation:rotz 55s linear infinite reverse}
+.spin4{transform-origin:100px 100px;animation:rotz 28s linear infinite}
+@keyframes rotz{to{transform:rotate(360deg)}}
+#boot{position:fixed;inset:0;z-index:9999;background:#010509;display:flex;align-items:center;justify-content:center;font:13px "Share Tech Mono",monospace;color:var(--cy);letter-spacing:.12em;transition:opacity .7s;animation:bootsafe .01s 7s forwards}
+#boot.done{opacity:0;pointer-events:none}
+@keyframes bootsafe{to{opacity:0;visibility:hidden;pointer-events:none}}
+.boot-in{width:min(580px,88vw)}
+#boot h1{margin:0 0 16px;font-size:22px;letter-spacing:.38em;text-shadow:0 0 14px var(--cy)}
+#bootText div{margin:5px 0;opacity:.92;white-space:pre}
+.boot-bar{height:5px;border:1px solid var(--cy);margin-top:18px}
+.boot-bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--cy2),var(--cy));box-shadow:0 0 10px var(--cy)}
+#boot small{display:block;margin-top:10px;opacity:.5;font-size:10px}
+@media(prefers-reduced-motion:reduce){#holo-sweep,.panel{animation:none}}
+/* Image studio */
+.img-panel{padding:10px 12px}
+.img-panel textarea{width:100%;box-sizing:border-box;resize:vertical;min-height:54px;background:rgba(2,10,22,.85);border:1px solid rgba(92,236,255,.5);color:var(--text);font:13px "Share Tech Mono",monospace;padding:9px 10px}
+.img-ctl{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.img-ctl select,.img-ctl button{background:#04122a;border:1px solid rgba(92,236,255,.55);color:var(--cy);font:10px "Share Tech Mono",monospace;letter-spacing:.1em;padding:8px 10px;cursor:pointer}
+.img-ctl button:hover{background:rgba(92,236,255,.18)}
+.img-ctl #imgGo{background:rgba(92,236,255,.2)}
+.img-ctl button:disabled{opacity:.5;cursor:wait}
+#imgMsg{margin-top:8px;font:11px "Share Tech Mono",monospace;color:var(--muted);min-height:14px}
+#imgState{font:10px "Share Tech Mono",monospace;letter-spacing:.14em;color:var(--muted)}
+#imgState.on{color:#5cecff}
+#imgGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px;margin-top:10px}
+.genfig{margin:0;border:1px solid rgba(92,236,255,.45);background:rgba(2,10,22,.6);padding:6px}
+.genfig img{display:block;width:100%;height:auto;cursor:pointer}
+.genfig figcaption{margin-top:6px;font:10px "Share Tech Mono",monospace;color:var(--muted);line-height:1.4}
+.genfig .gbar{display:flex;gap:6px;margin-top:6px}
+.genfig .gbar button{background:transparent;border:1px solid rgba(92,236,255,.5);color:var(--cy);font:10px "Share Tech Mono",monospace;padding:4px 8px;cursor:pointer}
+.genload{aspect-ratio:1/1;display:flex;align-items:center;justify-content:center;font:11px "Share Tech Mono",monospace;color:var(--cy);letter-spacing:.14em;background:linear-gradient(110deg,rgba(92,236,255,.05) 30%,rgba(92,236,255,.2) 50%,rgba(92,236,255,.05) 70%);background-size:220% 100%;animation:genshimmer 1.4s linear infinite}
+@keyframes genshimmer{to{background-position:-220% 0}}
+.msg.bot img.genimg{display:block;max-width:100%;margin-top:8px;border:1px solid rgba(92,236,255,.6);cursor:pointer}
 </style>
 </head>
 <body>
+<div id="boot" aria-hidden="true"><div class="boot-in"><h1 class="orb">FLOW</h1><div id="bootText"></div><div class="boot-bar"><i id="bootFill"></i></div><small>FLOW  •  TAP TO SKIP</small></div></div>
+<svg id="holo" aria-hidden="true"><defs><pattern id="hexgrid" width="56" height="100" patternUnits="userSpaceOnUse"><path d="M28 66L0 50L0 16L28 0L56 16L56 50L28 66L28 100" fill="none" stroke="#19e6ff" stroke-width="1"/><path d="M28 0L28 34L0 50L0 84L28 100L56 84L56 50L28 34" fill="none" stroke="#19e6ff" stroke-width="1"/></pattern></defs><rect width="100%" height="100%" fill="url(#hexgrid)"/></svg>
+<div id="holo-sweep" aria-hidden="true"></div>
 <div class="hud" id="hud">
   <aside class="side">
     <div class="panel clock">
@@ -320,6 +367,8 @@ body::-webkit-scrollbar-thumb{background:linear-gradient(#5cecff,#2879ff);border
       <svg viewBox="0 0 200 200" aria-hidden="true">
         <g class="spin"><circle cx="100" cy="100" r="94" fill="none" stroke="#19e6ff" stroke-width="2" stroke-dasharray="3 7" opacity=".8"/></g>
         <g class="spin2"><circle cx="100" cy="100" r="82" fill="none" stroke="#0a8fa3" stroke-width="6" stroke-dasharray="60 20 10 20"/></g>
+        <g class="spin3"><circle cx="100" cy="100" r="98.5" fill="none" stroke="#19e6ff" stroke-width="1.4" stroke-dasharray="1 4.2" opacity=".55"/></g>
+        <g class="spin4"><circle cx="100" cy="100" r="76" fill="none" stroke="#bff6ff" stroke-width="1.2" stroke-dasharray="14 4 2 4" opacity=".5"/></g>
         <circle cx="100" cy="100" r="68" fill="none" stroke="#19e6ff" stroke-width="3" opacity=".9"/>
         <circle cx="100" cy="100" r="52" fill="rgba(25,230,255,.12)" stroke="#19e6ff" stroke-width="1.5"/>
         <g class="core">
@@ -372,6 +421,18 @@ body::-webkit-scrollbar-thumb{background:linear-gradient(#5cecff,#2879ff);border
         <button id="mapClear" type="button">CLEAR</button>
       </div>
       <div id="mapMsg"></div>
+    </section>
+    <section class="panel img-panel" id="imgPanel" aria-label="Image generator">
+      <div class="map-head"><h2 class="orb">Image Studio</h2><span id="imgState">READY</span></div>
+      <textarea id="imgPrompt" rows="2" maxlength="500" placeholder="Describe the image… for example: a glowing futuristic city at sunset over calm backwaters"></textarea>
+      <div class="img-ctl">
+        <select id="imgStyle" title="Style"><option value="none">STYLE: AUTO</option><option value="real">Photo-realistic</option><option value="anime">Anime</option><option value="render">3D render</option><option value="art">Digital art</option><option value="holo">Hologram / sci-fi</option><option value="logo">Logo</option><option value="sketch">Pencil sketch</option></select>
+        <select id="imgSize" title="Shape"><option value="square">SQUARE</option><option value="wide">WIDE</option><option value="tall">TALL</option></select>
+        <button id="imgGo" type="button">GENERATE</button>
+        <button id="imgClear" type="button">CLEAR</button>
+      </div>
+      <div id="imgMsg">Type a description, or say “generate an image of …”.</div>
+      <div id="imgGrid"></div>
     </section>
     <section class="hud-gauges" aria-label="Flow live indicators">
       <div class="hud-ring" id="ring-messages" style="--progress:0%"><div class="hud-ring-content"><strong id="g-messages">0</strong><small>MESSAGES</small></div></div>
@@ -434,6 +495,7 @@ body::-webkit-scrollbar-thumb{background:linear-gradient(#5cecff,#2879ff);border
   <button class="orb" id="tb-explain">Explain</button>
   <button class="orb" id="tb-draft">Draft</button>
   <button class="orb" id="tb-full">Full</button>
+  <div class="themes" id="themeDots" role="group" aria-label="Theme"></div>
   <div class="tray orb"><span id="tray-up">--</span><span id="tray-st">ONLINE</span><span id="tray-time">--:--</span></div>
 </nav>
 <script>
@@ -484,7 +546,7 @@ async function connectFlow(){
       const response=await fetch("/api/chat",{method:"POST",headers:{"Content-Type":"application/json","x-access-code":code},body:JSON.stringify({messages})});
       const data=await response.json().catch(()=>({}));
       if(response.status===401){ try{ localStorage.removeItem("flowCode"); }catch(e){} throw new Error("Wrong access code. Refresh and try again."); }
-      if(!response.ok) throw new Error(data.error||"OpenAI could not answer. Check your API key and connection.");
+      if(!response.ok) throw new Error(data.error||"The AI could not answer. Check your API key and connection.");
       const text=String(data.reply||"").trim();
       if(!text) throw new Error("OpenAI returned an empty answer.");
       if(options.onText) options.onText({text});
@@ -718,7 +780,7 @@ $("tb-full").onclick=()=>{ Promise.resolve().then(()=>document.fullscreenElement
     let g=ctx.createRadialGradient(R*.8,R*.75,rad*.1,R,R,rad);
     g.addColorStop(0,"rgba(30,110,200,.55)"); g.addColorStop(1,"rgba(4,24,64,.9)");
     ctx.beginPath(); ctx.arc(R,R,rad,0,7); ctx.fillStyle=g; ctx.fill();
-    ctx.lineWidth=Math.max(1,size/90); ctx.strokeStyle="rgba(92,236,255,.85)"; ctx.stroke();
+    ctx.lineWidth=Math.max(1,size/90); ctx.strokeStyle="rgba(92,236,255,.85)"; ctx.stroke(); ctx.save(); ctx.shadowColor="rgba(92,236,255,.95)"; ctx.shadowBlur=size/11; ctx.stroke(); ctx.restore();
     const dot=Math.max(1,size/95);
     for(const p of pts){
       const lo=p.lon+rot, cl=Math.cos(p.lat);
@@ -734,6 +796,12 @@ $("tb-full").onclick=()=>{ Promise.resolve().then(()=>document.fullscreenElement
         ctx.fillRect(R+x*rad-dot/3, R-y2*rad-dot/3, dot*.66, dot*.66);
       }
     }
+    // holographic lat/long grid
+    ctx.lineWidth=Math.max(1,size/230); ctx.strokeStyle="rgba(92,236,255,.2)";
+    const gl=(fn)=>{ let on=false; ctx.beginPath(); for(let d=0; d<=360; d+=8){ const q=fn(d*Math.PI/180); const lo=q[1]+rot, cl=Math.cos(q[0]); const X=cl*Math.sin(lo), Y=Math.sin(q[0]), Z=cl*Math.cos(lo); const y2=Y*ct-Z*st, z2=Y*st+Z*ct;
+        if(z2>0){ const px=R+X*rad, py=R-y2*rad; if(on) ctx.lineTo(px,py); else ctx.moveTo(px,py); on=true; } else on=false; } ctx.stroke(); };
+    for(const la of [-60,-30,0,30,60]) gl(t=>[la*Math.PI/180,t]);
+    for(let lo=0; lo<360; lo+=30) gl(t=>[t/2-Math.PI/2,lo*Math.PI/180]);
     // GPS markers (you = cyan, destination = orange)
     for(const id in marks){
       const mk=marks[id], lo=mk.lon+rot, cl=Math.cos(mk.lat);
@@ -1220,9 +1288,10 @@ $("tb-full").onclick=()=>{ Promise.resolve().then(()=>document.fullscreenElement
     document.getElementById("hello")?.remove();
     input.value=""; input.style.height="auto";
     add("user",userText); const out=add("bot","…");
-    let reply, links=[]; try{ const r=await produce(); if(typeof r==="string") reply=r; else { reply=r.text; links=r.links||[]; } }catch(e){ reply=isM()?"Entho thettu patti, AT.":"Something went wrong there, AT."; }
+    let reply, links=[], images=[]; try{ const r=await produce(); if(typeof r==="string") reply=r; else { reply=r.text; links=r.links||[]; images=r.images||[]; } }catch(e){ reply=isM()?"Entho thettu patti, AT.":"Something went wrong there, AT."; }
     out.textContent=reply;
     links.forEach(l=>{ out.append(" "); const a=document.createElement("a"); a.href=l.url; a.target="_blank"; a.rel="noopener"; a.textContent="▶ "+l.name; out.appendChild(a); });
+    images.forEach(u=>{ out.appendChild(document.createElement("br")); const im=document.createElement("img"); im.src=u; im.alt="Generated image"; im.className="genimg"; im.onclick=()=>window.open(u,"_blank"); out.appendChild(im); });
     log.scrollTop=log.scrollHeight;
     history.push({role:"user",content:userText},{role:"assistant",content:reply}); saveHist(); stats();
     if(!quiet&&(voiceOn||autoSpeak)){ showVoice("speak"); await speak(reply); showVoice("idle"); }
@@ -1384,6 +1453,186 @@ $("tb-full").onclick=()=>{ Promise.resolve().then(()=>document.fullscreenElement
     });
     return true;
   };
+})();
+</script>
+<script>
+(() => {
+  const $q=id=>document.getElementById(id);
+  const isM=()=>typeof lang!=="undefined"&&lang==="manglish";
+  const STYLES={none:"",real:"photorealistic, ultra detailed, natural lighting, sharp focus",anime:"anime style, vibrant colors, detailed illustration",render:"3D render, soft studio lighting, high detail",art:"digital painting, concept art, highly detailed, dramatic lighting",holo:"futuristic holographic sci-fi style, glowing light, dark background",logo:"minimal vector logo, flat design, clean background",sketch:"pencil sketch, hand drawn, detailed shading"};
+  const SIZES={square:[1024,1024],wide:[1344,768],tall:[768,1344]};
+  const BLOCK=/(?:\b(?:child|children|kid|kids|minor|underage|teen|teenager|boy|girl|loli|schoolgirl|schoolboy)\b[^.]{0,60}\b(?:nude|naked|sexual|sex|porn|erotic|undress)\w*|\b(?:nude|naked|sexual|porn|erotic|undress)\w*[^.]{0,60}\b(?:child|children|kid|kids|minor|underage|teen|teenager|boy|girl|loli|schoolgirl|schoolboy)\b|\b(?:porn|pornographic|nsfw|hentai)\b)/i;
+
+  // ---------- generate: your server first (/api/image), then the free provider straight from the browser
+  async function generateImage(prompt,style,size){
+    const p=String(prompt||"").trim().slice(0,500);
+    if(p.length<3) throw new Error(isM()?"Image enthaanu venam ennu cheriya vaakkil parayoo.":"Describe the image in a few words.");
+    if(BLOCK.test(p)) throw new Error(isM()?"Aa tharam image enikku undaakkaan pattilla.":"I can't make that kind of image.");
+    const full=(p+(STYLES[style]?", "+STYLES[style]:"")).slice(0,700);
+    const dims=SIZES[size]||SIZES.square;
+    let code=""; try{ code=localStorage.getItem("flowCode")||""; }catch(e){}
+    try{
+      const r=await fetch("/api/image",{method:"POST",headers:{"Content-Type":"application/json","x-access-code":code},body:JSON.stringify({prompt:full,size:SIZES[size]?size:"square"})});
+      if(r.status===401) throw new Error("Wrong access code. Refresh the page and try again.");
+      if(r.ok){ const d=await r.json(); if(d.image) return {src:d.image,via:d.provider||"server"}; }
+    }catch(e){ if(/access code/i.test(e.message)) throw e; }
+    const url="https://image.pollinations.ai/prompt/"+encodeURIComponent(full)+"?width="+dims[0]+"&height="+dims[1]+"&seed="+Math.floor(Math.random()*1e9)+"&model=flux&nologo=true&safe=true";
+    await new Promise((res,rej)=>{
+      const im=new Image(); const t=setTimeout(()=>rej(new Error("The image service took too long. Try again.")),90000);
+      im.onload=()=>{ clearTimeout(t); res(); }; im.onerror=()=>{ clearTimeout(t); rej(new Error("The free image service is busy right now. Try again in a minute.")); }; im.src=url;
+    });
+    return {src:url,via:"free"};
+  }
+
+  // ---------- panel
+  const grid=$q("imgGrid"), msg=$q("imgMsg"), stateEl=$q("imgState"), go=$q("imgGo"), promptEl=$q("imgPrompt");
+  async function save(src,name){
+    try{ let href=src; if(!/^data:/.test(src)){ const r=await fetch(src); href=URL.createObjectURL(await r.blob()); }
+      const a=document.createElement("a"); a.href=href; a.download=name; document.body.appendChild(a); a.click(); a.remove(); }
+    catch(e){ window.open(src,"_blank"); }
+  }
+  function addResult(res,label){
+    const fig=document.createElement("figure"); fig.className="genfig";
+    const im=document.createElement("img"); im.src=res.src; im.alt=label; im.onclick=()=>window.open(res.src,"_blank"); fig.appendChild(im);
+    const cap=document.createElement("figcaption"); cap.textContent=label; fig.appendChild(cap);
+    const bar=document.createElement("div"); bar.className="gbar";
+    const b1=document.createElement("button"); b1.type="button"; b1.textContent="SAVE"; b1.onclick=()=>save(res.src,"flow-image-"+Date.now()+".png");
+    const b2=document.createElement("button"); b2.type="button"; b2.textContent="OPEN"; b2.onclick=()=>window.open(res.src,"_blank");
+    const b3=document.createElement("button"); b3.type="button"; b3.textContent="REMOVE"; b3.onclick=()=>fig.remove();
+    bar.append(b1,b2,b3); fig.appendChild(bar); grid.prepend(fig);
+    while(grid.children.length>8) grid.lastChild.remove();
+  }
+  async function run(prompt,style,size){
+    stateEl.textContent="GENERATING"; stateEl.classList.add("on"); go.disabled=true; msg.textContent="Generating… this can take 10–40 seconds.";
+    const ph=document.createElement("figure"); ph.className="genfig"; ph.innerHTML='<div class="genload">GENERATING…</div>'; grid.prepend(ph);
+    try{ const res=await generateImage(prompt,style,size); ph.remove(); addResult(res,prompt.slice(0,120)); msg.textContent="Done."; return res; }
+    catch(e){ ph.remove(); msg.textContent=e.message||"Image failed."; throw e; }
+    finally{ stateEl.textContent="READY"; stateEl.classList.remove("on"); go.disabled=false; }
+  }
+  go.onclick=()=>{ const p=promptEl.value.trim(); if(!p){ msg.textContent="Type a description first."; return; } run(p,$q("imgStyle").value,$q("imgSize").value).catch(()=>{}); };
+  promptEl.addEventListener("keydown",e=>{ if(e.key==="Enter"&&(e.ctrlKey||e.metaKey)){ e.preventDefault(); go.click(); } });
+  $q("imgClear").onclick=()=>{ grid.innerHTML=""; msg.textContent="Cleared."; };
+
+  // ---------- voice / typed: "generate an image of a red dragon", "draw a sunset over the sea"
+  const A=/^(?:please\s+)?(?:generate|create|make|draw|paint|design|imagine|render|produce|show\s+me)\s+(?:me\s+)?(?:an?\s+|the\s+)?(?:image|picture|photo|pic|drawing|painting|artwork|illustration|wallpaper|logo|poster|sketch)\s+(?:of|for|showing|with|about)\s+(.+)$/i;
+  const B=/^(?:please\s+)?(?:draw|paint|sketch)\s+(?:me\s+)?(.{3,})$/i;
+  const C=/^(?:image|picture|photo)\s*:\s*(.+)$/i;
+  const D=/^(.+?)\s+(?:image|photo|picture)\s+(?:undakk(?:u|oo)|undaakk(?:u|oo)|varach(?:u|oo)\s+tha(?:r|a)?)$/i;
+  const clean=t=>t.replace(/^(?:(?:hey|hi|hello|okay|ok|yo)[\s,]+)?(?:flow|floor|flo)\b[\s,.:!?-]*/i,"").replace(/[.!?]+$/,"").trim();
+  function imgCmd(t){ const c=clean(t); let m; if((m=c.match(A))||(m=c.match(B))||(m=c.match(C))||(m=c.match(D))) return m[1].trim(); return null; }
+  const baseLooks=window.looksLikeCommand; window.looksLikeCommand=t=>(baseLooks?baseLooks(t):false)||!!imgCmd(t);
+  const prev=window.localCommand;
+  window.localCommand=async function(text){
+    const p=imgCmd(text); if(!p) return prev(text);
+    $q("imgPanel").scrollIntoView({behavior:"smooth",block:"center"}); promptEl.value=p;
+    await flowRespond(text,async()=>{
+      try{
+        const res=await run(p,$q("imgStyle").value,$q("imgSize").value);
+        return {text:isM()?"Ithaa ninte image, AT.":"Here's your image, AT.",images:[res.src]};
+      }catch(e){ return (isM()?"Image undaakkaan pattiyilla: ":"I couldn't make that image: ")+(e.message||"unknown error"); }
+    });
+    return true;
+  };
+})();
+</script>
+<script>
+(() => {
+  const ls={ get(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } }, set(k,v){ try{ localStorage.setItem(k,v); }catch(e){} } };
+  const isM=()=>typeof lang!=="undefined"&&lang==="manglish";
+
+  // ---------- colour engine: rotates every colour in the stylesheet and the SVG rings
+  const THEMES=[
+    {id:"jarvis",name:"Flow Blue",dh:0,sat:1,lig:1,c1:"#19e6ff",c2:"#2879ff"},
+    {id:"stark",name:"Stark Red",dh:172,sat:1.05,lig:1,c1:"#ff3a2d",c2:"#ffb347"},
+    {id:"matrix",name:"Matrix Green",dh:-58,sat:1,lig:1,c1:"#2dff7a",c2:"#0aa86a"},
+    {id:"nebula",name:"Nebula Purple",dh:95,sat:1,lig:1,c1:"#b66bff",c2:"#ff4fd8"},
+    {id:"rose",name:"Rose Pink",dh:128,sat:1,lig:1,c1:"#ff5fb0",c2:"#ff4f6d"},
+    {id:"frost",name:"Frost White",dh:0,sat:.2,lig:1.04,c1:"#e8f4ff",c2:"#9ab6cf"}
+  ];
+  const ALIAS={jarvis:"jarvis",blue:"jarvis",cyan:"jarvis",default:"jarvis",original:"jarvis",normal:"jarvis",
+    stark:"stark",red:"stark","iron man":"stark",ironman:"stark",gold:"stark",orange:"stark",
+    matrix:"matrix",green:"matrix",hacker:"matrix",
+    nebula:"nebula",purple:"nebula",violet:"nebula",
+    rose:"rose",pink:"rose",
+    frost:"frost",white:"frost",ice:"frost",silver:"frost",grey:"frost",gray:"frost"};
+
+  function rgb2hsl(r,g,b){ r/=255;g/=255;b/=255; const mx=Math.max(r,g,b),mn=Math.min(r,g,b); let h=0,s=0,l=(mx+mn)/2; const d=mx-mn;
+    if(d){ s=l>.5?d/(2-mx-mn):d/(mx+mn); h=mx===r?(g-b)/d+(g<b?6:0):mx===g?(b-r)/d+2:(r-g)/d+4; h*=60; } return [h,s,l]; }
+  function hsl2rgb(h,s,l){ h=((h%360)+360)%360/360; if(!s){ const v=Math.round(l*255); return [v,v,v]; }
+    const q=l<.5?l*(1+s):l+s-l*s, p=2*l-q, f=t=>{ t=(t+1)%1; return t<1/6?p+(q-p)*6*t:t<.5?q:t<2/3?p+(q-p)*(2/3-t)*6:p; };
+    return [f(h+1/3),f(h),f(h-1/3)].map(v=>Math.round(v*255)); }
+  function shift(r,g,b,th){ const [h,s,l]=rgb2hsl(r,g,b); if(s<.06) return [Math.min(255,Math.round(r*th.lig)),Math.min(255,Math.round(g*th.lig)),Math.min(255,Math.round(b*th.lig))];
+    return hsl2rgb(h+th.dh,Math.min(1,s*th.sat),Math.min(1,l*th.lig)); }
+  const COLOR=/#([0-9a-fA-F]{8}|[0-9a-fA-F]{6}|[0-9a-fA-F]{3})\b|rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(?:,\s*([\d.]+)\s*)?\)/g;
+  const hx=n=>n.toString(16).padStart(2,"0");
+  function colorsIn(text,th){
+    return text.replace(COLOR,(m,hex,r,g,b,a)=>{
+      if(hex){ let h=hex; if(h.length===3) h=h.split("").map(c=>c+c).join(""); const al=h.length===8?h.slice(6):"";
+        const o=shift(parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16),th); return "#"+hx(o[0])+hx(o[1])+hx(o[2])+al; }
+      const o=shift(+r,+g,+b,th); return a!==undefined?"rgba("+o[0]+","+o[1]+","+o[2]+","+a+")":"rgb("+o[0]+","+o[1]+","+o[2]+")";
+    });
+  }
+  const themedCss=(css,th)=>css.replace(/\{([^{}]*)\}/g,(m,body)=>"{"+colorsIn(body,th)+"}");   // only inside declaration blocks, never selectors
+
+  const styles=[...document.querySelectorAll("style")].filter(s=>s.id!=="themeExtra"); styles.forEach(s=>{ s.__orig=s.textContent; });
+  const extra=document.createElement("style"); extra.id="themeExtra"; document.head.appendChild(extra);
+  const svgEls=[...document.querySelectorAll("[stroke],[fill],[stop-color]")].filter(e=>e.closest("svg")&&!e.closest("#map"));
+  svgEls.forEach(e=>{ ["stroke","fill","stop-color"].forEach(a=>{ if(e.hasAttribute(a)) e.dataset["o"+a.replace("-","")]=e.getAttribute(a); }); });
+  let current="jarvis";
+  function applyTheme(id){
+    const th=THEMES.find(t=>t.id===id)||THEMES[0]; current=th.id; ls.set("flowTheme",th.id);
+    styles.forEach(s=>{ s.textContent=th.id==="jarvis"?s.__orig:themedCss(s.__orig,th); });
+    svgEls.forEach(e=>["stroke","fill","stop-color"].forEach(a=>{ const o=e.dataset["o"+a.replace("-","")]; if(o!==undefined) e.setAttribute(a,th.id==="jarvis"?o:colorsIn(o,th)); }));
+    // the Earth is drawn on a canvas, so tint it with a filter that matches the theme
+    extra.textContent="#earth{filter:hue-rotate("+th.dh+"deg) saturate("+th.sat+") drop-shadow(0 0 10px "+colorsIn("rgba(40,160,255,.55)",th)+")}";
+    document.querySelectorAll("#themeDots button").forEach(b=>b.classList.toggle("on",b.dataset.id===th.id));
+    return th;
+  }
+  window.flowTheme={apply:applyTheme,list:THEMES,get current(){ return current; }};
+
+  // ---------- theme dots in the taskbar
+  const dots=document.getElementById("themeDots");
+  THEMES.forEach(t=>{ const b=document.createElement("button"); b.type="button"; b.dataset.id=t.id; b.title=t.name+" theme"; b.setAttribute("aria-label",t.name+" theme");
+    b.style.background="linear-gradient(135deg,"+t.c1+" 50%,"+t.c2+" 50%)"; b.onclick=()=>applyTheme(t.id); dots.appendChild(b); });
+  applyTheme(ls.get("flowTheme")||"jarvis");
+
+  // ---------- voice / typed commands: "switch to stark theme", "red mode", "next theme"
+  const clean=t=>t.replace(/^(?:(?:hey|hi|hello|okay|ok|yo)[\s,]+)?(?:flow|floor|flo)\b[\s,.:!?-]*/i,"").replace(/[.!?]+$/,"").trim().toLowerCase();
+  function themeCmd(t){
+    const c=clean(t); let m;
+    if(/^(?:please\s+)?(?:next|another|different|random)\s+(?:theme|colou?r|look)$/.test(c)) return {next:true};
+    if((m=c.match(/^(?:please\s+)?(?:change|switch|set|make|turn|go)\s+(?:it\s+)?(?:to\s+|into\s+)?(?:the\s+)?(.+?)(?:\s+(?:theme|mode|colou?rs?|look))?$/))){ const k=m[1].replace(/^(?:theme|colou?rs?|look|mode|interface|hud)\s+(?:to\s+)?/,"").trim(); if(ALIAS[k]) return {id:ALIAS[k]}; }
+    if((m=c.match(/^(?:please\s+)?(?:use\s+|show\s+|activate\s+|enable\s+)?(?:the\s+)?(.+?)\s+(?:theme|mode|colou?rs?)$/))&&ALIAS[m[1].trim()]) return {id:ALIAS[m[1].trim()]};
+    return null;
+  }
+  const baseLooks=window.looksLikeCommand; window.looksLikeCommand=t=>(baseLooks?baseLooks(t):false)||!!themeCmd(t);
+  const prev=window.localCommand;
+  window.localCommand=async function(text){
+    const c=themeCmd(text); if(!c) return prev(text);
+    await flowRespond(text,async()=>{
+      const th=c.next?THEMES[(THEMES.findIndex(t=>t.id===current)+1)%THEMES.length]:THEMES.find(t=>t.id===c.id);
+      applyTheme(th.id);
+      return isM()?th.name+" theme aakki, AT.":th.name+" theme is on, AT.";
+    });
+    return true;
+  };
+
+  // ---------- Flow boot sequence (once per browser tab session)
+  const boot=document.getElementById("boot");
+  if(boot){
+    let seen=null; try{ seen=sessionStorage.getItem("flowBoot"); }catch(e){}
+    const reduce=window.matchMedia&&matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if(seen||reduce){ boot.remove(); }
+    else {
+      try{ sessionStorage.setItem("flowBoot","1"); }catch(e){}
+      const out=document.getElementById("bootText"), fill=document.getElementById("bootFill");
+      const th=THEMES.find(t=>t.id===current);
+      const lines=["> INITIALIZING NEURAL UPLINK ............ OK","> CALIBRATING GEOSPATIAL MODEL .......... OK","> LINKING VOICE INTERFACE ............... OK","> LOADING THEME: "+th.name.toUpperCase()+" ..........","> ALL SYSTEMS ONLINE.  WELCOME BACK, AT."];
+      let i=0; const done=()=>{ boot.classList.add("done"); setTimeout(()=>boot.remove(),800); };
+      const step=()=>{ if(i<lines.length){ const d=document.createElement("div"); d.textContent=lines[i]; out.appendChild(d); i++; fill.style.width=Math.round(i/lines.length*100)+"%"; setTimeout(step,430); } else setTimeout(done,650); };
+      step(); boot.addEventListener("click",done); document.addEventListener("keydown",done,{once:true});
+    }
+  }
 })();
 </script>
 </body>
