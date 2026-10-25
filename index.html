@@ -335,6 +335,9 @@ body::-webkit-scrollbar-thumb{background:linear-gradient(#5cecff,#2879ff);border
 .genload{aspect-ratio:1/1;display:flex;align-items:center;justify-content:center;font:11px "Share Tech Mono",monospace;color:var(--cy);letter-spacing:.14em;background:linear-gradient(110deg,rgba(92,236,255,.05) 30%,rgba(92,236,255,.2) 50%,rgba(92,236,255,.05) 70%);background-size:220% 100%;animation:genshimmer 1.4s linear infinite}
 @keyframes genshimmer{to{background-position:-220% 0}}
 .msg.bot img.genimg{display:block;max-width:100%;margin-top:8px;border:1px solid rgba(92,236,255,.6);cursor:pointer}
+#imgChip{display:flex;align-items:center;gap:6px;margin-top:8px}
+#imgChip img{height:40px;width:auto;border:1px solid var(--cy)}
+#imgChip button{background:transparent;border:1px solid rgba(92,236,255,.5);color:var(--cy);font:10px monospace;padding:3px 7px;cursor:pointer}
 </style>
 </head>
 <body>
@@ -428,10 +431,13 @@ body::-webkit-scrollbar-thumb{background:linear-gradient(#5cecff,#2879ff);border
       <div class="img-ctl">
         <select id="imgStyle" title="Style"><option value="none">STYLE: AUTO</option><option value="real">Photo-realistic</option><option value="anime">Anime</option><option value="render">3D render</option><option value="art">Digital art</option><option value="holo">Hologram / sci-fi</option><option value="logo">Logo</option><option value="sketch">Pencil sketch</option></select>
         <select id="imgSize" title="Shape"><option value="square">SQUARE</option><option value="wide">WIDE</option><option value="tall">TALL</option></select>
+        <select id="imgEngine" title="Which AI makes the picture"><option value="auto">ENGINE: AUTO</option><option value="nano" id="optNano">NANO BANANA</option><option value="free">FREE</option></select>
+        <button id="imgPhoto" type="button" title="Attach a photo for Nano Banana to edit">+ PHOTO</button><input id="imgFile" type="file" accept="image/*" hidden>
         <button id="imgGo" type="button">GENERATE</button>
         <button id="imgClear" type="button">CLEAR</button>
       </div>
-      <div id="imgMsg">Type a description, or say “generate an image of …”.</div>
+      <div id="imgChip"></div>
+      <div id="imgMsg">Type a description, or say “generate an image of …”. Add a photo with + PHOTO to edit it with Nano Banana.</div>
       <div id="imgGrid"></div>
     </section>
     <section class="hud-gauges" aria-label="Flow live indicators">
@@ -1463,19 +1469,28 @@ $("tb-full").onclick=()=>{ Promise.resolve().then(()=>document.fullscreenElement
   const SIZES={square:[1024,1024],wide:[1344,768],tall:[768,1344]};
   const BLOCK=/(?:\b(?:child|children|kid|kids|minor|underage|teen|teenager|boy|girl|loli|schoolgirl|schoolboy)\b[^.]{0,60}\b(?:nude|naked|sexual|sex|porn|erotic|undress)\w*|\b(?:nude|naked|sexual|porn|erotic|undress)\w*[^.]{0,60}\b(?:child|children|kid|kids|minor|underage|teen|teenager|boy|girl|loli|schoolgirl|schoolboy)\b|\b(?:porn|pornographic|nsfw|hentai)\b)/i;
 
-  // ---------- generate: your server first (/api/image), then the free provider straight from the browser
+  // ---------- generate: your server first (Nano Banana / OpenAI / Hugging Face), then the free provider from the browser
+  let photo=null;   // photo to edit: {mime,data,thumb}
   async function generateImage(prompt,style,size){
     const p=String(prompt||"").trim().slice(0,500);
     if(p.length<3) throw new Error(isM()?"Image enthaanu venam ennu cheriya vaakkil parayoo.":"Describe the image in a few words.");
     if(BLOCK.test(p)) throw new Error(isM()?"Aa tharam image enikku undaakkaan pattilla.":"I can't make that kind of image.");
     const full=(p+(STYLES[style]?", "+STYLES[style]:"")).slice(0,700);
-    const dims=SIZES[size]||SIZES.square;
+    const dims=SIZES[size]||SIZES.square, engine=$q("imgEngine").value;
+    if(photo&&engine==="free") throw new Error("Editing a photo needs Nano Banana. Set ENGINE to NANO BANANA.");
     let code=""; try{ code=localStorage.getItem("flowCode")||""; }catch(e){}
-    try{
-      const r=await fetch("/api/image",{method:"POST",headers:{"Content-Type":"application/json","x-access-code":code},body:JSON.stringify({prompt:full,size:SIZES[size]?size:"square"})});
-      if(r.status===401) throw new Error("Wrong access code. Refresh the page and try again.");
-      if(r.ok){ const d=await r.json(); if(d.image) return {src:d.image,via:d.provider||"server"}; }
-    }catch(e){ if(/access code/i.test(e.message)) throw e; }
+    let serverErr=null;
+    if(engine!=="free"){
+      try{
+        const r=await fetch("/api/image",{method:"POST",headers:{"Content-Type":"application/json","x-access-code":code},
+          body:JSON.stringify({prompt:full,size:SIZES[size]?size:"square",provider:engine==="nano"?"gemini":undefined,photo:photo?{mime:photo.mime,data:photo.data}:undefined})});
+        const d=await r.json().catch(()=>({}));
+        if(r.status===401) throw new Error("Wrong access code. Refresh the page and try again.");
+        if(r.ok&&d.image) return {src:d.image,via:d.provider||"server"};
+        serverErr=new Error(d.error||(photo||engine==="nano"?"Nano Banana isn't set up on the server yet. Add GEMINI_API_KEY in Vercel, then Redeploy (and upload the new api/image.js).":"Server image service unavailable."));
+      }catch(e){ serverErr=e; }
+      if(photo||engine==="nano"||/access code/i.test(serverErr.message)) throw serverErr;
+    }
     const url="https://image.pollinations.ai/prompt/"+encodeURIComponent(full)+"?width="+dims[0]+"&height="+dims[1]+"&seed="+Math.floor(Math.random()*1e9)+"&model=flux&nologo=true&safe=true";
     await new Promise((res,rej)=>{
       const im=new Image(); const t=setTimeout(()=>rej(new Error("The image service took too long. Try again.")),90000);
@@ -1483,6 +1498,28 @@ $("tb-full").onclick=()=>{ Promise.resolve().then(()=>document.fullscreenElement
     });
     return {src:url,via:"free"};
   }
+
+  // ---------- attach a photo to edit
+  const fileIn=$q("imgFile"), chip=$q("imgChip");
+  function paintChip(){ chip.innerHTML=""; if(!photo) return; const t=document.createElement("img"); t.src=photo.thumb; t.alt="Attached photo";
+    const lab=document.createElement("span"); lab.textContent="Photo attached — Nano Banana will edit it"; lab.style.cssText="font:11px monospace;opacity:.8";
+    const x=document.createElement("button"); x.type="button"; x.textContent="✕"; x.title="Remove photo"; x.onclick=()=>{ photo=null; paintChip(); }; chip.append(t,lab,x); }
+  $q("imgPhoto").onclick=()=>fileIn.click();
+  fileIn.onchange=async()=>{
+    const f=fileIn.files&&fileIn.files[0]; fileIn.value=""; if(!f) return;
+    if(!/^image\//.test(f.type)){ msgEl().textContent="Please choose an image file."; return; }
+    try{
+      const url=URL.createObjectURL(f);
+      const im=await new Promise((res,rej)=>{ const i=new Image(); i.onload=()=>res(i); i.onerror=rej; i.src=url; });
+      const sc=Math.min(1,1024/Math.max(im.width,im.height)), c=document.createElement("canvas"); c.width=Math.round(im.width*sc); c.height=Math.round(im.height*sc);
+      c.getContext("2d").drawImage(im,0,0,c.width,c.height); URL.revokeObjectURL(url);
+      const data=c.toDataURL("image/jpeg",.88); photo={mime:"image/jpeg",data:data.split(",")[1],thumb:data}; paintChip();
+      if($q("imgEngine").value==="free") $q("imgEngine").value="nano";
+      msgEl().textContent="Photo attached. Describe how to change it (for example: make it a watercolour painting), then press GENERATE.";
+    }catch(e){ msgEl().textContent="Couldn't read that photo."; }
+  };
+  const msgEl=()=>$q("imgMsg");
+  fetch("/api/status",{cache:"no-store"}).then(r=>r.json()).then(d=>{ if(d&&d.nano===false) $q("optNano").textContent="NANO BANANA (needs key)"; }).catch(()=>{});
 
   // ---------- panel
   const grid=$q("imgGrid"), msg=$q("imgMsg"), stateEl=$q("imgState"), go=$q("imgGo"), promptEl=$q("imgPrompt");
@@ -1494,7 +1531,7 @@ $("tb-full").onclick=()=>{ Promise.resolve().then(()=>document.fullscreenElement
   function addResult(res,label){
     const fig=document.createElement("figure"); fig.className="genfig";
     const im=document.createElement("img"); im.src=res.src; im.alt=label; im.onclick=()=>window.open(res.src,"_blank"); fig.appendChild(im);
-    const cap=document.createElement("figcaption"); cap.textContent=label; fig.appendChild(cap);
+    const NAMES={gemini:"Nano Banana",openai:"OpenAI",huggingface:"FLUX",free:"Free FLUX",server:"Server"}; const cap=document.createElement("figcaption"); cap.textContent=label+" • "+(NAMES[res.via]||res.via); fig.appendChild(cap);
     const bar=document.createElement("div"); bar.className="gbar";
     const b1=document.createElement("button"); b1.type="button"; b1.textContent="SAVE"; b1.onclick=()=>save(res.src,"flow-image-"+Date.now()+".png");
     const b2=document.createElement("button"); b2.type="button"; b2.textContent="OPEN"; b2.onclick=()=>window.open(res.src,"_blank");
