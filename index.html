@@ -242,6 +242,43 @@ body::-webkit-scrollbar-thumb{background:linear-gradient(#5cecff,#2879ff);border
 #memBox .row{display:flex;gap:8px;margin-top:8px}
 #memBox input{flex:1;min-width:0;background:rgba(2,10,22,.8);border:1px solid rgba(92,236,255,.4);color:var(--text);font:inherit;padding:7px}
 #memEmpty{opacity:.7;padding:6px 0}
+/* Earth / Map / GPS panel */
+.map-panel{padding:10px 12px}
+.map-head{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px}
+.map-head h2{margin:0}
+.map-tools{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.map-tools button{background:transparent;border:1px solid rgba(92,236,255,.55);color:var(--cy);font:10px "Share Tech Mono",monospace;letter-spacing:.1em;padding:5px 8px;cursor:pointer;white-space:nowrap}
+.map-tools button:hover{background:rgba(92,236,255,.15)}.map-tools button.on{background:rgba(92,236,255,.22)}
+#gpsState{font:10px "Share Tech Mono",monospace;letter-spacing:.14em;color:var(--muted)}
+#gpsState.on{color:#5cecff}
+#map{height:380px;border:1px solid rgba(92,236,255,.45);background:#02060f;position:relative;z-index:0;overflow:hidden}
+#map.lf-street .leaflet-tile-pane{filter:invert(1) hue-rotate(185deg) brightness(.82) contrast(.95) saturate(.7)}
+#map .leaflet-control-attribution,#map .maplibregl-ctrl-attrib{background:rgba(3,14,32,.8)!important;color:#7fa6c4!important;font-size:9px}
+#map .leaflet-control-attribution a,#map .maplibregl-ctrl-attrib a{color:#5cecff!important}
+#map .leaflet-bar a{background:#071a33;color:#5cecff;border-color:rgba(92,236,255,.4)}
+.mk{width:18px;height:18px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 10px rgba(92,236,255,.9);animation:mkpulse 1.8s ease-out infinite}
+.mk.me{background:#2879ff}.mk.dest{background:#ff8a1f;box-shadow:0 0 10px rgba(255,160,60,.9)}
+@keyframes mkpulse{0%{box-shadow:0 0 0 0 rgba(92,236,255,.8)}100%{box-shadow:0 0 0 18px rgba(92,236,255,0)}}
+.map-info{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:7px 0;font:11px "Share Tech Mono",monospace;letter-spacing:.06em;color:var(--text)}
+.map-info #gpsMeta{color:var(--muted)}
+.map-ctl{display:flex;gap:6px;flex-wrap:wrap}
+.map-ctl.top{margin-bottom:8px}
+.map-search{position:relative;flex:1 1 220px;min-width:0;display:flex}
+.map-search input,.map-ctl input{flex:1;min-width:0;background:rgba(2,10,22,.85);border:1px solid rgba(92,236,255,.5);color:var(--text);font:13px "Share Tech Mono",monospace;padding:9px 10px}
+#mapSug{display:none;position:absolute;left:0;right:0;top:100%;z-index:60;background:#04122a;border:1px solid rgba(92,236,255,.55);max-height:230px;overflow:auto;box-shadow:0 8px 24px rgba(0,0,0,.5)}
+#mapSug.open{display:block}
+#mapSug button{display:block;width:100%;text-align:left;border:0;border-bottom:1px solid rgba(92,236,255,.18);background:transparent;color:var(--text);font:12px "Share Tech Mono",monospace;padding:9px 10px;cursor:pointer}
+#mapSug button:hover{background:rgba(92,236,255,.15)}
+.map-ctl button{background:transparent;border:1px solid rgba(92,236,255,.55);color:var(--cy);font:10px "Share Tech Mono",monospace;letter-spacing:.12em;padding:8px 11px;cursor:pointer;white-space:nowrap}
+.map-ctl button:hover{background:rgba(92,236,255,.15)}
+.map-ctl button.on{background:rgba(92,236,255,.22)}
+#mapMsg{margin-top:6px;font:11px "Share Tech Mono",monospace;color:var(--muted);min-height:14px}
+.map-panel.full{position:fixed;inset:0;z-index:45;margin:0;overflow:auto;background:#030813;display:flex;flex-direction:column}
+.map-panel.full #map{height:auto;flex:1;min-height:280px}
+@media(max-width:520px){#map{height:320px}}
+#vm-wake,#vm-rl{background:transparent;border:1px solid rgba(92,236,255,.55);color:var(--cy);font:inherit;letter-spacing:.08em;padding:4px 6px;cursor:pointer;white-space:nowrap}
+#vm-rl{max-width:128px;background:#04122a}
+#vm-wake.on{background:rgba(92,236,255,.22)}
 </style>
 </head>
 <body>
@@ -306,6 +343,24 @@ body::-webkit-scrollbar-thumb{background:linear-gradient(#5cecff,#2879ff);border
         <span class="direction-hint">MANUAL HEADING • NO GPS</span>
       </div>
     </section>
+    <section class="panel map-panel" id="mapPanel" aria-label="Earth and map">
+      <div class="map-head"><h2 class="orb">Earth / Map / GPS</h2>
+        <div class="map-tools"><button id="mapView" type="button">VIEW: EARTH</button><button id="mapGlobe" type="button" class="on">GLOBE: ON</button><button id="mapExpand" type="button">EXPAND</button><span id="gpsState">GPS OFF</span></div>
+      </div>
+      <div class="map-ctl top">
+        <div class="map-search"><input id="mapQ" type="text" maxlength="120" placeholder="Search any place, city or address…" autocomplete="off"><div id="mapSug"></div></div>
+        <button id="mapGo" type="button">SEARCH</button>
+        <button id="mapRoute" type="button">ROUTE</button>
+      </div>
+      <div id="map" role="img" aria-label="3D Earth and map"></div>
+      <div class="map-info"><span id="gpsCoords">No position yet</span><span id="gpsMeta">Tap LOCATE or say “where am I”</span></div>
+      <div class="map-ctl">
+        <button id="gpsLocate" type="button">LOCATE</button>
+        <button id="gpsTrack" type="button">TRACK: OFF</button>
+        <button id="mapClear" type="button">CLEAR</button>
+      </div>
+      <div id="mapMsg"></div>
+    </section>
     <section class="hud-gauges" aria-label="Flow live indicators">
       <div class="hud-ring" id="ring-messages" style="--progress:0%"><div class="hud-ring-content"><strong id="g-messages">0</strong><small>MESSAGES</small></div></div>
       <div class="hud-ring" id="ring-voice" style="--progress:18%"><div class="hud-ring-content"><strong id="g-voice">READY</strong><small>VOICE</small></div></div>
@@ -317,7 +372,7 @@ body::-webkit-scrollbar-thumb{background:linear-gradient(#5cecff,#2879ff);border
       <div class="telemetry-cell"><div class="telemetry-label"><span>REPLY STREAM</span><b id="g-stream-label">IDLE</b></div><div class="telemetry-track"><i id="main-stream"></i></div></div>
     </section>    <section class="panel chat"><div class="chat-heading"><span>CHAT WITH FLOW</span><span>TYPE BELOW OR TAP VOICE</span></div>
       <section class="welcome-dashboard" id="welcome-dashboard" aria-label="Live clock and voice meter"><div class="hud-ring welcome-clock" id="ring-time" style="--progress:0%"><div class="hud-ring-content"><strong id="g-time">--:--</strong><small>LOCAL TIME</small></div></div><div class="welcome-meter"><div class="welcome-meter-head"><strong>VOICE LEVEL</strong><span id="voice-meter-status">MIC OFF</span></div><div class="welcome-voice-bars" id="voice-meter-bars" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="welcome-meter-foot"><span id="voice-meter-hint">SELECT VOICE TO START</span><b id="voice-meter-value">0%</b></div></div></section><div id="log"><div class="note" id="hello">// Awaiting input. Say hello to begin.</div></div>
-      <div id="vmeter" aria-label="Voice meter"><span id="vm-state">VOICE IDLE</span><div id="vm-bars"></div><span id="vm-pct">0%</span><button id="vm-speak" type="button" title="Flow reads every answer aloud">SPEAK ON</button><button id="vm-stop" type="button" title="Stop talking">STOP</button><button id="vm-lang" type="button" title="Switch between English and Manglish"></button><button id="vm-mem" type="button" title="Open Flow's memory">MEMORY</button></div>
+      <div id="vmeter" aria-label="Voice meter"><span id="vm-state">VOICE IDLE</span><div id="vm-bars"></div><span id="vm-pct">0%</span><button id="vm-speak" type="button" title="Flow reads every answer aloud">SPEAK ON</button><button id="vm-stop" type="button" title="Stop talking">STOP</button><button id="vm-lang" type="button" title="Switch between English and Manglish"></button><button id="vm-mem" type="button" title="Open Flow's memory">MEMORY</button><button id="vm-wake" type="button" title="Say Hey Flow to wake it, hands-free">WAKE: OFF</button><select id="vm-rl" title="Language Flow listens for"><option value="auto">LISTEN: AUTO</option><option value="en_in">English (India)</option><option value="en_gb">English (UK)</option><option value="en_us">English (US)</option><option value="ml">Malayalam</option><option value="hi">Hindi</option></select></div>
       <div class="bar">
         <textarea id="input" rows="1" placeholder="Message Flow…"></textarea>
         <button id="mic" class="orb" title="Voice mode">Mic</button>
@@ -471,7 +526,7 @@ let voiceOn=false, rec=null, voice=null;
 function pickVoice(){ const vs=synth?synth.getVoices():[];
   voice = vs.find(v=>/en-GB/i.test(v.lang)&&/daniel|arthur|george|ryan|male/i.test(v.name)&&!/female/i.test(v.name)) || vs.find(v=>/en-GB/i.test(v.lang)) || vs.find(v=>/^en/i.test(v.lang)) || null; }
 if(synth){ pickVoice(); synth.onvoiceschanged=pickVoice; }
-let speakToken=0, autoSpeak=true, lang="english";
+let speakToken=0, autoSpeak=true, lang="english", speechRate=1, speechVol=1;
 try{ lang=localStorage.getItem("flowLang")==="manglish"?"manglish":"english"; }catch(e){}
 try{ autoSpeak=localStorage.getItem("flowSpeak")!=="off"; }catch(e){}
 function stopSpeaking(){ speakToken++; if(synth) try{ synth.cancel(); }catch(e){} }
@@ -488,7 +543,7 @@ function speak(text){
       const mg=(lang==="manglish");
       const vv=mg?((synth.getVoices().find(v=>/en-IN/i.test(v.lang)))||voice):voice;
       if(vv){ u.voice=vv; u.lang=vv.lang; } else u.lang=mg?"en-IN":"en-GB";
-      u.rate=mg?.92:.97; u.pitch=mg?1:.8;
+      u.rate=(mg?.92:.97)*speechRate; u.pitch=mg?1:.8; u.volume=speechVol;
       let d=false; const fin=()=>{ if(!d){ d=true; clearTimeout(tm); next(); } };
       const tm=setTimeout(fin,2500+seg.length*110); u.onend=u.onerror=fin;
       synth.speak(u);
@@ -508,18 +563,18 @@ function stopVoice(msg){
 }
 function listen(){
   if(!voiceOn||!SR||busy) return;
-  rec=new SR(); rec.lang=(lang==="manglish")?"ml-IN":(navigator.language||"en-US"); rec.interimResults=true; rec.continuous=false;
+  rec=new SR(); rec.lang=recLang(); rec.interimResults=true; rec.continuous=false; rec.maxAlternatives=5;
   let finalText="";
   rec.onstart=()=>showVoice("listen");
-  rec.onresult=e=>{ let t=""; for(const r of e.results){ t+=r[0].transcript; if(r.isFinal) finalText=t; } input.value=t; };
+  rec.onresult=e=>{ let t=""; for(const r of e.results){ t+=pickAlt(r); if(r.isFinal) finalText=t; } input.value=t; };
   rec.onerror=e=>{
     if(e.error==="not-allowed"||e.error==="service-not-allowed") stopVoice("// Microphone access was blocked. Allow the mic, or open the page in its own browser tab.");
     else if(e.error==="audio-capture") stopVoice("// No microphone found.");
     else if(e.error!=="no-speech"&&e.error!=="aborted") stopVoice("// Voice error: "+e.error+". Try opening the page in its own tab in Chrome.");
   };
   rec.onend=async()=>{ showVoice("idle"); if(!voiceOn) return;
-    const t=(finalText||input.value).trim();
-    if(t){ input.value=t; await send(); } else setTimeout(listen,300); };
+    const t=gateWake((finalText||input.value).trim());
+    if(t){ input.value=t; await send(); } else { if(wakeOn()) input.value=""; setTimeout(listen,300); } };
   try{ rec.start(); }catch(e){}
 }
 function toggleVoice(){
@@ -624,11 +679,20 @@ $("tb-full").onclick=()=>{ Promise.resolve().then(()=>document.fullscreenElement
   const tilt=23.5*Math.PI/180, ct=Math.cos(tilt), st=Math.sin(tilt);
   const still=window.matchMedia&&matchMedia("(prefers-reduced-motion: reduce)").matches;
   let rot=0, last=performance.now();
+  const marks={}; let focus=null;
+  window.flowEarth={
+    set(id,m){ if(m&&isFinite(m.lat)&&isFinite(m.lon)) marks[id]={lat:m.lat*Math.PI/180,lon:m.lon*Math.PI/180,color:m.color||"#5cecff"}; },
+    remove(id){ delete marks[id]; },
+    focus(lon){ focus={lon:lon*Math.PI/180,until:performance.now()+7000}; }
+  };
   function frame(now){
     const dt=Math.min(.05,(now-last)/1000); last=now;
     const c=hud.classList;
     const speed=c.contains("busy")?1.3:c.contains("speaking")?.8:c.contains("listening")?.5:.3;
-    if(!still) rot+=speed*dt;
+    if(focus&&now<focus.until){
+      let d=(-focus.lon-rot)%(2*Math.PI); if(d>Math.PI) d-=2*Math.PI; if(d<-Math.PI) d+=2*Math.PI;
+      rot+=d*Math.min(1,dt*3);
+    } else if(!still) rot+=speed*dt;
     const R=size/2, rad=R*.94;
     ctx.clearRect(0,0,size,size);
     // ocean body + atmosphere
@@ -650,6 +714,15 @@ $("tb-full").onclick=()=>{ Promise.resolve().then(()=>document.fullscreenElement
         ctx.fillStyle="rgba(92,236,255,.12)";                 // far side shows through faintly
         ctx.fillRect(R+x*rad-dot/3, R-y2*rad-dot/3, dot*.66, dot*.66);
       }
+    }
+    // GPS markers (you = cyan, destination = orange)
+    for(const id in marks){
+      const mk=marks[id], lo=mk.lon+rot, cl=Math.cos(mk.lat);
+      const x=cl*Math.sin(lo), y=Math.sin(mk.lat), z=cl*Math.cos(lo), y2=y*ct-z*st, z2=y*st+z*ct;
+      if(z2<=.02) continue;
+      const px=R+x*rad, py=R-y2*rad, pulse=(now/900+(id==="me"?0:.5))%1, r0=Math.max(2,size/46);
+      ctx.beginPath(); ctx.arc(px,py,r0*(1+pulse*2.4),0,7); ctx.strokeStyle=mk.color; ctx.globalAlpha=(1-pulse)*.8; ctx.lineWidth=Math.max(1,size/150); ctx.stroke(); ctx.globalAlpha=1;
+      ctx.beginPath(); ctx.arc(px,py,r0,0,7); ctx.fillStyle=mk.color; ctx.shadowColor=mk.color; ctx.shadowBlur=r0*2.5; ctx.fill(); ctx.shadowBlur=0;
     }
     // soft highlight
     g=ctx.createRadialGradient(R*.7,R*.65,0,R*.7,R*.65,rad);
@@ -788,6 +861,381 @@ $("tb-full").onclick=()=>{ Promise.resolve().then(()=>document.fullscreenElement
     if(voiceOn||autoSpeak){ showVoice("speak"); await speak(reply); showVoice("idle"); }
     if(voiceOn) listen();
     return true;
+  };
+})();
+</script>
+<script>
+(() => {
+  const ls={ get(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } }, set(k,v){ try{ localStorage.setItem(k,v); }catch(e){} } };
+  const isM=()=>lang==="manglish";
+  const $q=id=>document.getElementById(id);
+
+  // ================= VOICE: recognition language, alternatives, wake word, controls =================
+  try{ speechRate=parseFloat(ls.get("flowRate"))||1; speechVol=parseFloat(ls.get("flowVol"))||1; }catch(e){}
+  const rl=$q("vm-rl"), wakeBtn=$q("vm-wake");
+  const RL={en_in:"en-IN",en_gb:"en-GB",en_us:"en-US",ml:"ml-IN",hi:"hi-IN"};
+  rl.value=ls.get("flowRecLang")||"auto"; if(!rl.value) rl.value="auto";
+  rl.onchange=()=>{ ls.set("flowRecLang",rl.value); if(voiceOn&&rec){ try{ rec.abort(); }catch(e){} } };
+  window.recLang=()=>RL[rl.value]||(isM()?"ml-IN":"en-IN");
+
+  let wake=false, awakeUntil=0;
+  window.wakeOn=()=>wake;
+  const WAKE=/^(?:(?:hey|hi|hello|okay|ok|yo)[\s,]+(?:flow|floor|flo|low|slow|follow)\b|flow\b)[\s,.:!?-]*/i;
+  window.gateWake=t=>{
+    if(!wake||!t) return t;
+    if(Date.now()<awakeUntil){ awakeUntil=0; return t; }
+    const m=t.match(WAKE); if(!m) return "";
+    const rest=t.slice(m[0].length).trim();
+    if(rest) return rest;
+    awakeUntil=Date.now()+12000; speak(isM()?"Parayoo, AT?":"Yes, AT?"); return "";
+  };
+  const paintWake=()=>{ wakeBtn.textContent=wake?"WAKE: ON":"WAKE: OFF"; wakeBtn.classList.toggle("on",wake); };
+  wakeBtn.onclick=()=>{ wake=!wake; paintWake(); if(wake&&!voiceOn) toggleVoice(); if(wake) note(isM()?"// Wake mode on. “Hey Flow” ennu paranjaal njan kelkkum.":"// Wake mode on. Say “Hey Flow” followed by your request."); };
+  paintWake();
+
+  const cleanCmd=t=>t.replace(/^(?:(?:hey|hi|hello|okay|ok|yo)[\s,]+)?(?:flow|floor|flo)\b[\s,.:!?-]*/i,"")
+    .replace(/\b(?:man\s?glish|mangalish|manglis|manglish)\b/ig,"manglish").replace(/[.!?]+$/,"").trim();
+
+  // ================= MAP / GPS (3D Earth globe + street map) =================
+  const mapEl=$q("map"), panel=$q("mapPanel"), msgEl=$q("mapMsg"), stateEl=$q("gpsState"), coordEl=$q("gpsCoords"), metaEl=$q("gpsMeta");
+  const qIn=$q("mapQ"), sugEl=$q("mapSug"), locBtn=$q("gpsLocate"), trkBtn=$q("gpsTrack"), viewBtn=$q("mapView"), globeBtn=$q("mapGlobe"), expBtn=$q("mapExpand");
+  let mapx=null, pos=null, dest=null, watchId=null, follow=true, firstFix=true, placeName="", booting=null, view="earth", globe=true;
+  const say=t=>{ msgEl.textContent=t; };
+
+  const loadCss=u=>{ const l=document.createElement("link"); l.rel="stylesheet"; l.href=u; document.head.appendChild(l); };
+  const loadJs=urls=>new Promise(res=>{ let i=0; const next=()=>{ if(i>=urls.length) return res(false); const s=document.createElement("script"); s.src=urls[i++]; s.onload=()=>res(true); s.onerror=()=>{ s.remove(); next(); }; document.head.appendChild(s); }; next(); });
+  const dotEl=c=>{ const d=document.createElement("div"); d.className="mk "+c; return d; };
+
+  // ---- backend 1: MapLibre GL (real 3D globe that zooms down to streets)
+  function makeML(){
+    const B={name:"maplibre"}; let map,meMk,destMk,loaded=false,pendingRoute=null,layerMode="earth",globeOn=true,lastTouch=0;
+    const applyLayers=()=>{ if(!loaded) return; const e=layerMode==="earth"; const v=x=>x?"visible":"none";
+      map.setLayoutProperty("earth","visibility",v(e)); map.setLayoutProperty("labels","visibility",v(e)); map.setLayoutProperty("street","visibility",v(!e)); };
+    const setRoute=line=>{ pendingRoute=line; if(!loaded) return; const src=map.getSource("route");
+      if(src) src.setData(line?{type:"Feature",properties:{},geometry:{type:"LineString",coordinates:line.map(c=>[c[1],c[0]])}}:{type:"FeatureCollection",features:[]}); };
+    B.init=async()=>{
+      if(!window.maplibregl){
+        loadCss("https://cdn.jsdelivr.net/npm/maplibre-gl@5.6.0/dist/maplibre-gl.css");
+        const ok=await loadJs(["https://cdn.jsdelivr.net/npm/maplibre-gl@5.6.0/dist/maplibre-gl.js","https://unpkg.com/maplibre-gl@5.6.0/dist/maplibre-gl.js"]);
+        if(!ok||!window.maplibregl) return false;
+      }
+      try{
+        map=new maplibregl.Map({container:"map",center:[78,18],zoom:1.4,attributionControl:{compact:true},
+          style:{version:8,
+            sources:{
+              earth:{type:"raster",tiles:["https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"],tileSize:256,maxzoom:18,attribution:"Imagery © Esri, Maxar, Earthstar Geographics"},
+              labels:{type:"raster",tiles:["https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}"],tileSize:256,maxzoom:18},
+              street:{type:"raster",tiles:["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],tileSize:256,maxzoom:19,attribution:"© OpenStreetMap contributors"}
+            },
+            layers:[
+              {id:"bg",type:"background",paint:{"background-color":"#02060f"}},
+              {id:"earth",type:"raster",source:"earth"},
+              {id:"street",type:"raster",source:"street",layout:{visibility:"none"}},
+              {id:"labels",type:"raster",source:"labels"}
+            ]}});
+        map.addControl(new maplibregl.NavigationControl({visualizePitch:true}),"top-right");
+        map.on("style.load",()=>{ try{ map.setProjection({type:globeOn?"globe":"mercator"}); }catch(e){} });
+        map.on("load",()=>{
+          loaded=true;
+          map.addSource("route",{type:"geojson",data:{type:"FeatureCollection",features:[]}});
+          map.addLayer({id:"route-casing",type:"line",source:"route",layout:{"line-cap":"round","line-join":"round"},paint:{"line-color":"#03121f","line-width":9,"line-opacity":.75}});
+          map.addLayer({id:"route-line",type:"line",source:"route",layout:{"line-cap":"round","line-join":"round"},paint:{"line-color":"#5cecff","line-width":4.5}});
+          applyLayers(); if(pendingRoute) setRoute(pendingRoute);
+        });
+        map.on("dragstart",()=>{ B.onDrag&&B.onDrag(); });
+        ["mousedown","touchstart","wheel"].forEach(ev=>mapEl.addEventListener(ev,()=>{ lastTouch=Date.now(); },{passive:true}));
+        setInterval(()=>{   // slow idle spin while you're looking at the whole Earth
+          if(!map||document.hidden||!loaded||!globeOn) return;
+          if(map.getZoom()<3&&Date.now()-lastTouch>8000&&!map.isMoving()){ const c=map.getCenter(); map.easeTo({center:[c.lng+30,c.lat],duration:2000,easing:t=>t}); }
+        },2000);
+        return true;
+      }catch(e){ return false; }
+    };
+    B.setMe=(lat,lon)=>{ if(!meMk) meMk=new maplibregl.Marker({element:dotEl("me")}).setLngLat([lon,lat]).addTo(map); else meMk.setLngLat([lon,lat]); };
+    B.setDest=(d,line,p,focus)=>{
+      if(destMk) destMk.remove(); destMk=new maplibregl.Marker({element:dotEl("dest")}).setLngLat([d.lon,d.lat]).addTo(map);
+      setRoute(line||null);
+      if(line&&line.length>1){ const b=new maplibregl.LngLatBounds(); line.forEach(c=>b.extend([c[1],c[0]])); map.fitBounds(b,{padding:60,duration:2000}); }
+      else if(focus||!p) map.flyTo({center:[d.lon,d.lat],zoom:focus?12:5,duration:2500,essential:true});
+      else { const b=new maplibregl.LngLatBounds([p.lon,p.lat],[p.lon,p.lat]); b.extend([d.lon,d.lat]); map.fitBounds(b,{padding:70,duration:2200,maxZoom:12}); }
+    };
+    B.clearDest=()=>{ if(destMk){ destMk.remove(); destMk=null; } setRoute(null); };
+    B.fly=(lat,lon,z)=>map.flyTo({center:[lon,lat],zoom:z||15,duration:2600,essential:true});
+    B.center=(lat,lon)=>map.easeTo({center:[lon,lat],duration:800});
+    B.zoomIn=()=>map.zoomIn(); B.zoomOut=()=>map.zoomOut();
+    B.setLayer=m=>{ layerMode=m; try{ applyLayers(); }catch(e){} };
+    B.setGlobe=on=>{ globeOn=on; try{ map.setProjection({type:on?"globe":"mercator"}); }catch(e){} };
+    B.resize=()=>{ try{ map.resize(); }catch(e){} };
+    return B;
+  }
+
+  // ---- backend 2: Leaflet (flat map fallback if WebGL or the globe library isn't available)
+  function makeLF(){
+    const B={name:"leaflet"}; let map,me,acc,dm,rl,layer,mode="earth";
+    const TILES={earth:["https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}","Imagery © Esri"],map:["https://tile.openstreetmap.org/{z}/{x}/{y}.png","© OpenStreetMap contributors"]};
+    const setTiles=()=>{ if(layer) layer.remove(); const t=TILES[mode]; layer=L.tileLayer(t[0],{maxZoom:mode==="earth"?18:19,attribution:t[1]}).addTo(map); mapEl.classList.toggle("lf-street",mode==="map"); };
+    B.init=async()=>{
+      if(!window.L){
+        loadCss("https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css");
+        if(!(await loadJs(["https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"]))||!window.L) return false;
+      }
+      try{ mapEl.innerHTML=""; map=L.map("map").setView([20,10],2); setTiles(); map.on("dragstart",()=>{ B.onDrag&&B.onDrag(); }); return true; }catch(e){ return false; }
+    };
+    B.setMe=(lat,lon,a)=>{ const ll=[lat,lon]; if(!me){ me=L.circleMarker(ll,{radius:7,color:"#5cecff",weight:2,fillColor:"#2879ff",fillOpacity:1}).addTo(map); acc=L.circle(ll,{radius:a,weight:1,color:"#5cecff",fillOpacity:.08}).addTo(map); } else { me.setLatLng(ll); acc.setLatLng(ll); acc.setRadius(a); } };
+    B.setDest=(d,line,p,focus)=>{
+      if(dm) dm.remove(); if(rl){ rl.remove(); rl=null; }
+      dm=L.circleMarker([d.lat,d.lon],{radius:8,color:"#ffb347",weight:2,fillColor:"#ff8a1f",fillOpacity:.95}).addTo(map);
+      if(line&&line.length>1){ rl=L.polyline(line,{color:"#5cecff",weight:4,opacity:.9}).addTo(map); map.fitBounds(rl.getBounds(),{padding:[24,24]}); }
+      else if(focus||!p) map.setView([d.lat,d.lon],focus?12:5);
+      else map.fitBounds([[p.lat,p.lon],[d.lat,d.lon]],{padding:[30,30]});
+    };
+    B.clearDest=()=>{ if(dm){ dm.remove(); dm=null; } if(rl){ rl.remove(); rl=null; } };
+    B.fly=(lat,lon,z)=>map.setView([lat,lon],z||15);
+    B.center=(lat,lon)=>map.panTo([lat,lon]);
+    B.zoomIn=()=>map.zoomIn(); B.zoomOut=()=>map.zoomOut();
+    B.setLayer=m=>{ mode=m; setTiles(); }; B.setGlobe=()=>{}; B.resize=()=>{ try{ map.invalidateSize(); }catch(e){} };
+    return B;
+  }
+
+  function initMap(){
+    if(!booting) booting=(async()=>{
+      let b=makeML(); if(await b.init()) mapx=b;
+      else { b=makeLF(); if(await b.init()) mapx=b; }
+      if(!mapx){ say("The map couldn't load here. Coordinates and voice directions still work."); return false; }
+      mapx.onDrag=()=>{ follow=false; };
+      mapx.setLayer(view); mapx.setGlobe(globe);
+      if(mapx.name==="leaflet"){ globeBtn.style.display="none"; say("Showing the flat map (the 3D globe needs WebGL)."); }
+      return true;
+    })();
+    return booting;
+  }
+  const paintCtl=()=>{ viewBtn.textContent="VIEW: "+(view==="earth"?"EARTH":"STREET"); globeBtn.textContent="GLOBE: "+(globe?"ON":"OFF"); globeBtn.classList.toggle("on",globe); };
+  const applyView=async()=>{ paintCtl(); if(await initMap()){ mapx.setLayer(view); mapx.setGlobe(globe); } };
+  viewBtn.onclick=()=>{ view=view==="earth"?"map":"earth"; applyView(); };
+  globeBtn.onclick=()=>{ globe=!globe; applyView(); };
+  const setFull=on=>{ panel.classList.toggle("full",on); expBtn.textContent=on?"CLOSE":"EXPAND"; setTimeout(()=>{ if(mapx) mapx.resize(); },80); };
+  expBtn.onclick=()=>setFull(!panel.classList.contains("full"));
+  document.addEventListener("keydown",e=>{ if(e.key==="Escape"){ if(panel.classList.contains("full")) setFull(false); hideSug(); } });
+  paintCtl(); initMap();
+
+  const fmtCoord=(v,p,n)=>Math.abs(v).toFixed(4)+"° "+(v>=0?p:n);
+  const toRad=d=>d*Math.PI/180;
+  function dist(a,b){ const R=6371000,dLa=toRad(b.lat-a.lat),dLo=toRad(b.lon-a.lon),x=Math.sin(dLa/2)**2+Math.cos(toRad(a.lat))*Math.cos(toRad(b.lat))*Math.sin(dLo/2)**2; return 2*R*Math.asin(Math.sqrt(x)); }
+  function bearing(a,b){ const y=Math.sin(toRad(b.lon-a.lon))*Math.cos(toRad(b.lat)), x=Math.cos(toRad(a.lat))*Math.sin(toRad(b.lat))-Math.sin(toRad(a.lat))*Math.cos(toRad(b.lat))*Math.cos(toRad(b.lon-a.lon)); return (Math.atan2(y,x)*180/Math.PI+360)%360; }
+  const CARD=["NORTH","NORTH-EAST","EAST","SOUTH-EAST","SOUTH","SOUTH-WEST","WEST","NORTH-WEST"];
+  const cardinalOf=b=>CARD[Math.round(b/45)%8];
+  const fmtDist=m=>m<1000?(Math.max(10,Math.round(m/10)*10))+" metres":(m/1000).toFixed(m<10000?1:0)+" kilometres";
+  const fmtTime=s=>{ const m=Math.round(s/60); if(m<2) return "about a minute"; if(m<90) return m+" minutes"; const h=Math.floor(m/60), r=m%60; return h+" hour"+(h>1?"s":"")+(r?" "+r+" minutes":""); };
+
+  function setCompass(b,label){
+    const deg=Math.round(b)%360;
+    $("heading").textContent=String(deg).padStart(3,"0")+"°"; $("cardinal").textContent=cardinalOf(b);
+    $("needle").style.transform="rotate("+deg+"deg)";
+    const h=document.querySelector(".direction-hint"); if(h) h.textContent=label;
+    document.querySelectorAll("[data-bearing]").forEach(x=>x.classList.remove("selected"));
+  }
+
+  async function updatePos(p){
+    const c=p.coords; pos={lat:c.latitude,lon:c.longitude,acc:c.accuracy,speed:c.speed,heading:c.heading};
+    stateEl.textContent=watchId!==null?"GPS TRACKING":"GPS FIX"; stateEl.classList.add("on");
+    if(window.flowEarth) flowEarth.set("me",{lat:pos.lat,lon:pos.lon,color:"#5cecff"});
+    coordEl.textContent=fmtCoord(pos.lat,"N","S")+"  "+fmtCoord(pos.lon,"E","W");
+    const bits=["±"+Math.round(pos.acc)+" m"]; if(pos.speed!=null&&isFinite(pos.speed)&&pos.speed>0.3) bits.push(Math.round(pos.speed*3.6)+" km/h");
+    if(pos.heading!=null&&isFinite(pos.heading)&&pos.speed>0.5){ bits.push("heading "+Math.round(pos.heading)+"°"); if(!dest) setCompass(pos.heading,"GPS HEADING"); }
+    metaEl.textContent=bits.join(" • ");
+    if(dest) setCompass(bearing(pos,dest),"BEARING TO "+dest.name.toUpperCase().slice(0,22));
+    if(await initMap()){
+      mapx.setMe(pos.lat,pos.lon,pos.acc);
+      if(follow&&!dest){ if(firstFix){ firstFix=false; mapx.fly(pos.lat,pos.lon,15); } else mapx.center(pos.lat,pos.lon); }
+    }
+  }
+
+  const GEO_ERR={1:["Location permission is blocked. Allow location for this site in the browser, AT.","Location permission block aanu. Browser-il ee site-inu location allow cheyyoo, AT."],2:["Your device couldn’t work out its position, AT.","Ninte device-inu location kittunnilla, AT."],3:["Finding your location took too long. Try again, AT.","Location edukkaan time koodi poyi. Veendum nokkoo, AT."]};
+  function geoErr(e){ const m=GEO_ERR[e&&e.code]||GEO_ERR[2]; return isM()?m[1]:m[0]; }
+  function getFix(){
+    return new Promise((res,rej)=>{
+      if(!navigator.geolocation) return rej({code:2});
+      navigator.geolocation.getCurrentPosition(async p=>{ await updatePos(p); res(pos); },rej,{enableHighAccuracy:true,timeout:15000,maximumAge:5000});
+    });
+  }
+  async function reverse(lat,lon){
+    try{
+      const r=await fetch("https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=16&lat="+lat+"&lon="+lon,{headers:{"Accept":"application/json"}});
+      const d=await r.json(); const parts=String(d.display_name||"").split(",").map(x=>x.trim()).filter(Boolean);
+      return parts.slice(0,3).join(", ");
+    }catch(e){ return ""; }
+  }
+  async function geocodeMany(q,near,limit){
+    let url="https://nominatim.openstreetmap.org/search?format=jsonv2&limit="+(limit||1)+"&q="+encodeURIComponent(q);
+    if(near&&pos){ const d=0.25; url+="&viewbox="+(pos.lon-d)+","+(pos.lat+d)+","+(pos.lon+d)+","+(pos.lat-d)+"&bounded=1"; }
+    const r=await fetch(url,{headers:{"Accept":"application/json"}}); const a=await r.json();
+    return (a||[]).map(t=>({lat:parseFloat(t.lat),lon:parseFloat(t.lon),name:String(t.display_name||q).split(",")[0].trim()||q,full:t.display_name}));
+  }
+  const geocode=async(q,near)=>(await geocodeMany(q,near,1))[0]||null;
+  async function drive(a,b){
+    try{
+      const r=await fetch("https://router.project-osrm.org/route/v1/driving/"+a.lon+","+a.lat+";"+b.lon+","+b.lat+"?overview=full&geometries=geojson");
+      const d=await r.json(); const rt=d.routes&&d.routes[0]; if(!rt) return null;
+      return {m:rt.distance,s:rt.duration,line:rt.geometry.coordinates.map(c=>[c[1],c[0]])};
+    }catch(e){ return null; }
+  }
+  async function showDest(d,line,focus){
+    dest=d; if(window.flowEarth){ flowEarth.set("dest",{lat:d.lat,lon:d.lon,color:"#ffb347"}); flowEarth.focus(d.lon); }
+    if(await initMap()){ mapx.setDest(d,line,pos,focus); follow=false; }
+  }
+  function clearMap(){ if(window.flowEarth) flowEarth.remove("dest"); dest=null; if(mapx) mapx.clearDest(); follow=true; say(""); hideSug(); const h=document.querySelector(".direction-hint"); if(h) h.textContent="MANUAL HEADING • NO GPS"; if(pos&&mapx) mapx.fly(pos.lat,pos.lon,15); }
+
+  function track(on){
+    if(on&&watchId===null&&navigator.geolocation){
+      firstFix=true;
+      watchId=navigator.geolocation.watchPosition(updatePos,e=>{ say(geoErr(e)); stopTrack(); },{enableHighAccuracy:true,maximumAge:2000,timeout:20000});
+      trkBtn.textContent="TRACK: ON"; trkBtn.classList.add("on"); stateEl.textContent="GPS TRACKING";
+    } else if(!on) stopTrack();
+  }
+  function stopTrack(){ if(watchId!==null&&navigator.geolocation) navigator.geolocation.clearWatch(watchId); watchId=null; trkBtn.textContent="TRACK: OFF"; trkBtn.classList.remove("on"); if(pos) stateEl.textContent="GPS FIX"; else { stateEl.textContent="GPS OFF"; stateEl.classList.remove("on"); } }
+
+  // high-level actions (return the sentence Flow will say)
+  async function actWhere(){
+    try{ follow=true; firstFix=true; await getFix(); }catch(e){ return geoErr(e); }
+    if(window.flowEarth) flowEarth.focus(pos.lon);
+    placeName=await reverse(pos.lat,pos.lon);
+    say(placeName?("You are near "+placeName):"");
+    return placeName?(isM()?"Nee ippo "+placeName+" adhuthaan, AT.":"You're near "+placeName+", AT."):(isM()?"Ninte location kittiyi, pakshe place name kittiyilla, AT.":"I have your position, AT, but couldn't name the place.");
+  }
+  async function routeTo(d,onlyDistance){
+    if(!pos){ try{ await getFix(); }catch(e){ return geoErr(e); } }
+    const rt=await drive(pos,d);
+    await showDest(d,onlyDistance?null:(rt&&rt.line),false);
+    setCompass(bearing(pos,d),"BEARING TO "+d.name.toUpperCase().slice(0,22));
+    const straight=dist(pos,d), b=cardinalOf(bearing(pos,d)).toLowerCase();
+    say(d.name+" • "+fmtDist(rt?rt.m:straight)+(rt?" • "+fmtTime(rt.s):""));
+    if(rt) return isM()?d.name+" "+fmtDist(rt.m)+" dooram und, ethra "+fmtTime(rt.s)+" edukkum. "+(onlyDistance?"":"Route map-il kaanikkunnu, ")+"AT.":d.name+" is "+fmtDist(rt.m)+" away by road, about "+fmtTime(rt.s)+". "+(onlyDistance?"":"I've drawn the route on the map, ")+"AT.";
+    return isM()?d.name+" "+fmtDist(straight)+" dooram, "+b+" dishayil, AT.":d.name+" is "+fmtDist(straight)+" away to the "+b+", AT. I couldn't get road directions just now.";
+  }
+  async function actRoute(q,onlyDistance){
+    let d=null; try{ d=await geocode(q,false); }catch(e){}
+    if(!d) return isM()?q+" kittiyilla, AT.":"I couldn't find "+q+", AT.";
+    return routeTo(d,onlyDistance);
+  }
+  async function actFind(q,near){
+    if(near&&!pos){ try{ await getFix(); }catch(e){ return geoErr(e); } }
+    let d=null; try{ d=await geocode(q,near); }catch(e){}
+    if(!d) return isM()?q+" kittiyilla, AT.":"I couldn't find "+q+(near?" near you":"")+", AT.";
+    await showDest(d,null,true);
+    if(pos) setCompass(bearing(pos,d),"BEARING TO "+d.name.toUpperCase().slice(0,22));
+    say(d.full||d.name);
+    const extra=pos?" It's "+fmtDist(dist(pos,d))+" from you.":"";
+    return isM()?d.name+" map-il kaanikkunnu, AT.":"Here's "+d.name+" on the map, AT."+extra;
+  }
+
+  // ---- search bar (press Enter or GO; pick from the list if there are several matches)
+  function hideSug(){ sugEl.classList.remove("open"); sugEl.innerHTML=""; }
+  async function selectPlace(d){
+    hideSug(); qIn.value=d.name;
+    await showDest(d,null,true);
+    if(pos) setCompass(bearing(pos,d),"BEARING TO "+d.name.toUpperCase().slice(0,22));
+    say((d.full||d.name)+(pos?"  •  "+fmtDist(dist(pos,d))+" from you":""));
+  }
+  async function doSearch(){
+    const q=qIn.value.trim(); if(!q) return; say("Searching…");
+    let arr=[]; try{ arr=await geocodeMany(q,false,5); }catch(e){ say("Search failed. Check your connection."); return; }
+    if(!arr.length){ say("No results for “"+q+"”."); hideSug(); return; }
+    hideSug();
+    if(arr.length>1){
+      arr.forEach(d=>{ const b=document.createElement("button"); b.type="button"; b.textContent=d.full||d.name; b.onclick=()=>selectPlace(d); sugEl.appendChild(b); });
+      sugEl.classList.add("open");
+    }
+    await selectPlace(arr[0]); if(arr.length>1) sugEl.classList.add("open");
+  }
+  document.addEventListener("click",e=>{ if(!e.target.closest(".map-search")) hideSug(); });
+
+  // buttons
+  locBtn.onclick=async()=>{ say("Locating…"); follow=true; firstFix=true; try{ await getFix(); if(window.flowEarth) flowEarth.focus(pos.lon); placeName=await reverse(pos.lat,pos.lon); say(placeName?"You are near "+placeName:""); if(mapx) mapx.fly(pos.lat,pos.lon,15); }catch(e){ say(geoErr(e)); } };
+  trkBtn.onclick=()=>{ if(watchId===null){ follow=true; track(true); } else stopTrack(); };
+  $q("mapGo").onclick=doSearch;
+  $q("mapRoute").onclick=async()=>{
+    const q=qIn.value.trim(); say("Routing…");
+    try{
+      let d=dest&&(!q||q.toLowerCase()===dest.name.toLowerCase())?dest:(q?await geocode(q,false):null);
+      if(!d){ say(q?"I couldn't find “"+q+"”.":"Search for a destination first."); return; }
+      say(await routeTo(d,false));
+    }catch(e){ say("Routing failed."); }
+  };
+  $q("mapClear").onclick=clearMap;
+  qIn.addEventListener("keydown",e=>{ if(e.key==="Enter"){ e.preventDefault(); doSearch(); } });
+
+  // let the AI know the general area only after the user has located themselves
+  const basePre=window.buildPreface;
+  window.buildPreface=()=>basePre()+(placeName?"\n\nThe user shared their GPS area with you: "+placeName+". Use it only when location matters (nearby places, directions, local time or weather questions).":"");
+
+  // ================= COMMAND PARSER (typed or spoken) =================
+  const ND="(?:please\\s+)?";
+  const CMDS=[
+    ["stop",   new RegExp("^"+ND+"(?:stop(?:\\s+talking)?|be\\s+quiet|quiet|shut\\s+up|silence|enough|cancel)$","i")],
+    ["repeat", new RegExp("^"+ND+"(?:repeat(?:\\s+that)?|say\\s+(?:that|it)\\s+again|what\\s+did\\s+you\\s+say)$","i")],
+    ["faster", new RegExp("^"+ND+"(?:(?:speak|talk|go)\\s+(?:faster|quicker)|speed\\s+up)$","i")],
+    ["slower", new RegExp("^"+ND+"(?:(?:speak|talk|go)\\s+slower|slow\\s+down)$","i")],
+    ["louder", new RegExp("^"+ND+"(?:(?:be\\s+|speak\\s+|talk\\s+)?louder|volume\\s+up|turn\\s+it\\s+up)$","i")],
+    ["quieter",new RegExp("^"+ND+"(?:(?:be\\s+|speak\\s+|talk\\s+)?(?:quieter|softer)|volume\\s+down|turn\\s+it\\s+down)$","i")],
+    ["where",  new RegExp("^"+ND+"(?:where\\s+am\\s+i|where\\s+are\\s+we|what(?:'s|\\s+is)\\s+my\\s+(?:current\\s+)?location|(?:show|find|locate)\\s+(?:me|my\\s+location)|ente\\s+location(?:\\s+evide)?|njan\\s+evide(?:yaan(?:u)?)?|evideyaanu\\s+njan)$","i")],
+    ["earth",  new RegExp("^"+ND+"(?:show|open|switch\\s+to|go\\s+to)\\s+(?:me\\s+)?(?:the\\s+)?(?:earth|globe|satellite)(?:\\s+view|\\s+mode)?$","i")],
+    ["street", new RegExp("^"+ND+"(?:(?:show|open|switch\\s+to|go\\s+to)\\s+(?:me\\s+)?(?:the\\s+)?(?:street|road|flat)\\s+map|map\\s+view|street\\s+view)$","i")],
+    ["map",    new RegExp("^"+ND+"(?:show|open|display)\\s+(?:me\\s+)?(?:the\\s+|my\\s+)?map$","i")],
+    ["trackon",new RegExp("^"+ND+"(?:start|turn\\s+on|enable)\\s+(?:gps\\s+)?(?:tracking|gps)$|^track\\s+me$","i")],
+    ["trackoff",new RegExp("^"+ND+"(?:stop|turn\\s+off|disable)\\s+(?:gps\\s+)?(?:tracking|gps)$","i")],
+    ["clear",  new RegExp("^"+ND+"(?:clear|reset|close)\\s+(?:the\\s+)?(?:map|route)$","i")],
+    ["zoomin", new RegExp("^"+ND+"zoom\\s+in$","i")],
+    ["zoomout",new RegExp("^"+ND+"zoom\\s+out$","i")],
+    ["center", new RegExp("^"+ND+"(?:center|centre)\\s+(?:the\\s+map\\s+)?on\\s+me$","i")],
+    ["dist",   new RegExp("^"+ND+"(?:how\\s+far\\s+(?:is|to)|distance\\s+to)\\s+(.+?)(?:\\s+from\\s+here)?$","i")],
+    ["route",  new RegExp("^"+ND+"(?:take\\s+me\\s+to|navigate\\s+to|directions?\\s+to|route\\s+to|drive\\s+to|how\\s+do\\s+i\\s+get\\s+to|how\\s+can\\s+i\\s+reach)\\s+(.+)$","i")],
+    ["near",   new RegExp("^"+ND+"(?:find|search(?:\\s+for)?|show\\s+me|locate)\\s+(.+?)\\s+(?:near\\s+me|nearby|around\\s+here|near\\s+here)$","i")],
+    ["place",  new RegExp("^"+ND+"(?:find|show|locate|search(?:\\s+for)?)\\s+(?:me\\s+)?(.+?)\\s+on\\s+(?:the\\s+)?map$","i")]
+  ];
+  function parseCmd(t){ for(const [k,re] of CMDS){ const m=t.match(re); if(m) return {k,arg:(m[1]||"").trim()}; } return null; }
+  const MEMLANG=/^(?:please\s+)?(?:remember|forget|memorize|talk|speak|reply|switch|change)\b/i;
+  window.looksLikeCommand=t=>{ const c=cleanCmd(t); return !!parseCmd(c)||MEMLANG.test(c); };
+  window.pickAlt=r=>{ if(!r.isFinal||r.length<2) return r[0].transcript; for(let i=0;i<r.length;i++) if(looksLikeCommand(r[i].transcript)) return r[i].transcript; return r[0].transcript; };
+
+  async function respond(userText,produce,quiet){
+    document.getElementById("hello")?.remove();
+    input.value=""; input.style.height="auto";
+    add("user",userText); const out=add("bot","…");
+    let reply; try{ reply=await produce(); }catch(e){ reply=isM()?"Entho thettu patti, AT.":"Something went wrong there, AT."; }
+    out.textContent=reply; log.scrollTop=log.scrollHeight;
+    history.push({role:"user",content:userText},{role:"assistant",content:reply}); saveHist(); stats();
+    if(!quiet&&(voiceOn||autoSpeak)){ showVoice("speak"); await speak(reply); showVoice("idle"); }
+    if(voiceOn) listen();
+  }
+
+  const baseLC=window.localCommand;
+  window.localCommand=async function(text){
+    if(/[\u0D00-\u0D7F]/.test(text)&&!isM()) setLang("manglish");   // Malayalam script heard → Manglish replies
+    const clean=cleanCmd(text), c=parseCmd(clean);
+    if(!c) return baseLC(clean||text);
+    const K=c.k;
+    if(K==="stop"){ stopSpeaking(); showVoice("idle"); input.value=""; if(voiceOn) listen(); return true; }
+    if(K==="repeat"){ const last=[...history].reverse().find(m=>m.role==="assistant"); input.value=""; if(last){ showVoice("speak"); await speak(last.content); showVoice("idle"); } if(voiceOn) listen(); return true; }
+    const speakOnly=r=>respond(text,async()=>r);
+    if(K==="faster"){ speechRate=Math.min(1.6,+(speechRate+.15).toFixed(2)); ls.set("flowRate",speechRate); await speakOnly(isM()?"Sheri, vegam koottaam, AT.":"Speaking faster, AT."); return true; }
+    if(K==="slower"){ speechRate=Math.max(.6,+(speechRate-.15).toFixed(2)); ls.set("flowRate",speechRate); await speakOnly(isM()?"Sheri, pathukke parayaam, AT.":"Speaking slower, AT."); return true; }
+    if(K==="louder"){ speechVol=Math.min(1,+(speechVol+.25).toFixed(2)); ls.set("flowVol",speechVol); await speakOnly(speechVol>=1?(isM()?"Full volume-il aanu, AT. Device volume koottoo.":"That's my maximum, AT. Turn up your device volume too."):(isM()?"Sheri, sound koottunnu.":"Louder it is, AT.")); return true; }
+    if(K==="quieter"){ speechVol=Math.max(.2,+(speechVol-.25).toFixed(2)); ls.set("flowVol",speechVol); await speakOnly(isM()?"Sheri, sound kuraykkunnu.":"Quieter, AT."); return true; }
+    if(K==="earth"){ await respond(text,async()=>{ view="earth"; globe=true; await applyView(); mapEl.scrollIntoView({behavior:"smooth",block:"center"}); return isM()?"Earth view kaanikkunnu, AT.":"Earth view, AT."; }); return true; }
+    if(K==="street"){ await respond(text,async()=>{ view="map"; await applyView(); mapEl.scrollIntoView({behavior:"smooth",block:"center"}); return isM()?"Street map kaanikkunnu, AT.":"Street map, AT."; }); return true; }
+    if(K==="trackon"){ await respond(text,async()=>{ follow=true; track(true); return isM()?"GPS tracking on aakki, AT.":"GPS tracking is on, AT."; }); return true; }
+    if(K==="trackoff"){ await respond(text,async()=>{ stopTrack(); return isM()?"Tracking nirthi, AT.":"Tracking stopped, AT."; }); return true; }
+    if(K==="clear"){ await respond(text,async()=>{ clearMap(); return isM()?"Map clear aakki, AT.":"Map cleared, AT."; }); return true; }
+    if(K==="zoomin"){ await respond(text,async()=>{ if(mapx) mapx.zoomIn(); return isM()?"Zoom in cheythu.":"Zooming in."; }); return true; }
+    if(K==="zoomout"){ await respond(text,async()=>{ if(mapx) mapx.zoomOut(); return isM()?"Zoom out cheythu.":"Zooming out."; }); return true; }
+    if(K==="center"){ await respond(text,async()=>{ if(!pos) return actWhere(); follow=true; if(mapx) mapx.fly(pos.lat,pos.lon,15); return isM()?"Ninne map-inte nadduvil vechu.":"Centred on you, AT."; }); return true; }
+    if(K==="map"){ await respond(text,async()=>{ mapEl.scrollIntoView({behavior:"smooth",block:"center"}); return pos?(isM()?"Map ithaa, AT.":"Here's the map, AT."):actWhere(); }); return true; }
+    if(K==="where"){ await respond(text,async()=>{ mapEl.scrollIntoView({behavior:"smooth",block:"center"}); return actWhere(); }); return true; }
+    if(K==="dist"){ await respond(text,()=>actRoute(c.arg,true)); return true; }
+    if(K==="route"){ await respond(text,async()=>{ mapEl.scrollIntoView({behavior:"smooth",block:"center"}); return actRoute(c.arg,false); }); return true; }
+    if(K==="near"){ await respond(text,async()=>{ mapEl.scrollIntoView({behavior:"smooth",block:"center"}); return actFind(c.arg,true); }); return true; }
+    if(K==="place"){ await respond(text,async()=>{ mapEl.scrollIntoView({behavior:"smooth",block:"center"}); return actFind(c.arg,false); }); return true; }
+    return false;
   };
 })();
 </script>
