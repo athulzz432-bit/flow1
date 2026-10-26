@@ -357,6 +357,24 @@ body::-webkit-scrollbar-thumb{background:linear-gradient(#5cecff,#2879ff);border
 .msg.bot .srcs a{margin-right:6px}
 #vm-depth,#vm-search{background:transparent;border:1px solid rgba(92,236,255,.55);color:var(--cy);font:inherit;letter-spacing:.08em;padding:4px 7px;cursor:pointer;white-space:nowrap}
 #vm-depth:hover,#vm-search:hover{background:rgba(92,236,255,.15)}
+/* Live flights */
+.map-wrap{position:relative}
+.map-panel.full .map-wrap{flex:1;min-height:280px;display:flex}
+.map-panel.full .map-wrap #map{flex:1;height:auto}
+.fl-row{margin-bottom:8px;align-items:center}
+.fl-row input{flex:1 1 150px;min-width:0;background:rgba(2,10,22,.85);border:1px solid rgba(92,236,255,.5);color:var(--text);font:12px "Share Tech Mono",monospace;padding:8px 9px}
+#flStat{font:11px "Share Tech Mono",monospace;color:var(--muted);flex:1 1 100%}
+#flLegend{font:10px "Share Tech Mono",monospace;color:var(--muted);flex:1 1 100%;letter-spacing:.05em}
+#flLegend i{display:inline-block;width:9px;height:9px;border-radius:50%;margin:0 4px 0 8px;vertical-align:-1px}
+#flInfo{position:absolute;left:8px;bottom:8px;z-index:6;width:min(290px,calc(100% - 16px));background:rgba(3,14,32,.92);border:1px solid rgba(92,236,255,.65);box-shadow:0 0 18px rgba(0,0,0,.6);padding:10px 12px;font:12px "Share Tech Mono",monospace;color:var(--text);line-height:1.55}
+#flInfo[hidden]{display:none}
+#flInfo h4{margin:0 0 4px;font:700 16px "Share Tech Mono",monospace;letter-spacing:.1em;color:var(--cy)}
+#flInfo .sub{opacity:.7;margin-bottom:6px}
+#flInfo .grid{display:grid;grid-template-columns:auto 1fr;gap:1px 12px}
+#flInfo .grid span:nth-child(odd){opacity:.65}
+#flInfo .btns{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
+#flInfo button,#flInfo a.btn{background:transparent;border:1px solid rgba(92,236,255,.55);color:var(--cy);font:10px "Share Tech Mono",monospace;padding:5px 8px;cursor:pointer;text-decoration:none;letter-spacing:.08em}
+#flInfo button:hover,#flInfo a.btn:hover{background:rgba(92,236,255,.18)}
 </style>
 </head>
 <body>
@@ -435,7 +453,14 @@ body::-webkit-scrollbar-thumb{background:linear-gradient(#5cecff,#2879ff);border
         <button id="mapGo" type="button">SEARCH</button>
         <button id="mapRoute" type="button">ROUTE</button>
       </div>
-      <div id="map" role="img" aria-label="3D Earth and map"></div>
+      <div class="map-ctl fl-row">
+        <button id="flToggle" type="button">✈ FLIGHTS: OFF</button>
+        <input id="flQ" type="text" maxlength="12" placeholder="Find a flight, e.g. AIC681" autocomplete="off">
+        <button id="flFind" type="button">FIND</button>
+        <div id="flStat"></div>
+        <div id="flLegend" hidden>Altitude:<i style="background:#ffe066"></i>under 1 km<i style="background:#ffa53a"></i>3.5 km<i style="background:#5cecff"></i>7.5 km<i style="background:#7aa2ff"></i>10.5 km<i style="background:#d68cff"></i>higher</div>
+      </div>
+      <div class="map-wrap"><div id="map" role="img" aria-label="3D Earth and map"></div><div id="flInfo" hidden></div></div>
       <div class="map-info"><span id="gpsCoords">No position yet</span><span id="gpsMeta">Tap LOCATE or say “where am I”</span></div>
       <div class="map-ctl">
         <button id="gpsLocate" type="button">LOCATE</button>
@@ -1080,6 +1105,37 @@ $("tb-full").onclick=()=>{ Promise.resolve().then(()=>document.fullscreenElement
     B.setLayer=m=>{ layerMode=m; try{ applyLayers(); }catch(e){} };
     B.setGlobe=on=>{ globeOn=on; try{ map.setProjection({type:on?"globe":"mercator"}); }catch(e){} };
     B.resize=()=>{ try{ map.resize(); }catch(e){} };
+    // ---- live flights layer
+    const PLANE_COLORS=["#ffe066","#ffa53a","#5cecff","#7aa2ff","#d68cff"];
+    const EMPTY={type:"FeatureCollection",features:[]};
+    function planeImg(color){
+      const c=document.createElement("canvas"); c.width=c.height=48; const g=c.getContext("2d");
+      g.beginPath(); g.moveTo(24,3); g.lineTo(28,16); g.lineTo(44,28); g.lineTo(44,32); g.lineTo(28,27); g.lineTo(27,38); g.lineTo(33,43); g.lineTo(33,46); g.lineTo(24,43.5); g.lineTo(15,46); g.lineTo(15,43); g.lineTo(21,38); g.lineTo(20,27); g.lineTo(4,32); g.lineTo(4,28); g.lineTo(20,16); g.closePath();
+      g.fillStyle=color; g.fill(); g.lineWidth=2; g.strokeStyle="rgba(0,0,0,.65)"; g.stroke();
+      return g.getImageData(0,0,48,48);
+    }
+    let flReady=false;
+    B.flightsInit=()=>{
+      if(flReady) return; flReady=true;
+      const go=()=>{
+        PLANE_COLORS.forEach((c,i)=>map.addImage("pl"+i,planeImg(c),{pixelRatio:2}));
+        map.addSource("flights",{type:"geojson",data:EMPTY});
+        map.addLayer({id:"flights",type:"symbol",source:"flights",layout:{
+          "icon-image":["step",["to-number",["get","alt"],0],"pl0",1000,"pl1",3500,"pl2",7500,"pl3",10500,"pl4"],
+          "icon-size":["interpolate",["linear"],["zoom"],1,.3,4,.45,8,.72,12,1],
+          "icon-rotate":["to-number",["get","hdg"],0],"icon-rotation-alignment":"map","icon-pitch-alignment":"map","icon-allow-overlap":true,"icon-ignore-placement":true}});
+        map.addSource("flsel",{type:"geojson",data:EMPTY});
+        map.addLayer({id:"flsel",type:"circle",source:"flsel",paint:{"circle-radius":17,"circle-color":"rgba(255,255,255,0)","circle-stroke-color":"#ffffff","circle-stroke-width":2}});
+        map.on("click","flights",e=>{ const f=e.features&&e.features[0]; if(f&&B.onFlight) B.onFlight(f.properties); });
+        map.on("mouseenter","flights",()=>{ map.getCanvas().style.cursor="pointer"; });
+        map.on("mouseleave","flights",()=>{ map.getCanvas().style.cursor=""; });
+        let tm=null; map.on("moveend",()=>{ clearTimeout(tm); tm=setTimeout(()=>{ if(B.onMove) B.onMove(); },900); });
+      };
+      if(loaded) go(); else map.once("load",go);
+    };
+    B.setFlights=fc=>{ const s=map.getSource("flights"); if(s) s.setData(fc); };
+    B.setSelected=c=>{ const s=map.getSource("flsel"); if(s) s.setData(c?{type:"Feature",geometry:{type:"Point",coordinates:c},properties:{}}:EMPTY); };
+    B.getView=()=>{ const b=map.getBounds(); return {w:b.getWest(),s:b.getSouth(),e:b.getEast(),n:b.getNorth(),zoom:map.getZoom()}; };
     return B;
   }
 
@@ -1108,6 +1164,15 @@ $("tb-full").onclick=()=>{ Promise.resolve().then(()=>document.fullscreenElement
     B.center=(lat,lon)=>map.panTo([lat,lon]);
     B.zoomIn=()=>map.zoomIn(); B.zoomOut=()=>map.zoomOut();
     B.setLayer=m=>{ mode=m; setTiles(); }; B.setGlobe=()=>{}; B.resize=()=>{ try{ map.invalidateSize(); }catch(e){} };
+    // ---- live flights layer (simple dots)
+    let flLayer=null, flRend=null;
+    B.flightsInit=()=>{ if(flLayer) return; flLayer=L.layerGroup().addTo(map); flRend=L.canvas({padding:.3}); let tm=null; map.on("moveend",()=>{ clearTimeout(tm); tm=setTimeout(()=>{ if(B.onMove) B.onMove(); },900); }); };
+    B.setFlights=fc=>{ if(!flLayer) return; flLayer.clearLayers(); const cols=["#ffe066","#ffa53a","#5cecff","#7aa2ff","#d68cff"], cut=[1000,3500,7500,10500];
+      fc.features.slice(0,2500).forEach(f=>{ const a=+f.properties.alt||0; let i=0; while(i<4&&a>=cut[i]) i++; const xy=f.geometry.coordinates;
+        L.circleMarker([xy[1],xy[0]],{renderer:flRend,radius:3.5,weight:0,fillColor:cols[i],fillOpacity:.95}).on("click",()=>{ if(B.onFlight) B.onFlight(f.properties); }).addTo(flLayer); }); };
+    let flSel=null;
+    B.setSelected=c=>{ if(flSel){ flSel.remove(); flSel=null; } if(c&&flLayer) flSel=L.circleMarker([c[1],c[0]],{radius:10,color:"#fff",weight:2,fill:false}).addTo(map); };
+    B.getView=()=>{ const b=map.getBounds(); return {w:b.getWest(),s:b.getSouth(),e:b.getEast(),n:b.getNorth(),zoom:map.getZoom()}; };
     return B;
   }
 
@@ -1186,6 +1251,7 @@ $("tb-full").onclick=()=>{ Promise.resolve().then(()=>document.fullscreenElement
     return (a||[]).map(t=>({lat:parseFloat(t.lat),lon:parseFloat(t.lon),name:String(t.display_name||q).split(",")[0].trim()||q,full:t.display_name}));
   }
   const geocode=async(q,near)=>(await geocodeMany(q,near,1))[0]||null;
+  window.flowMap={get mapx(){ return mapx; },get pos(){ return pos; },geocode,getFix,initMap,geoErr,fmtDist,dist,bearing,cardinalOf};
   async function drive(a,b){
     try{
       const r=await fetch("https://router.project-osrm.org/route/v1/driving/"+a.lon+","+a.lat+";"+b.lon+","+b.lat+"?overview=full&geometries=geojson");
@@ -1730,6 +1796,184 @@ $("tb-full").onclick=()=>{ Promise.resolve().then(()=>document.fullscreenElement
       t=(i>180?cut.slice(0,i+1):cut)+(isM()?" Poorna utharam screen-il und, AT.":" The full answer is on screen, AT."); }
     return t;
   };
+})();
+</script>
+<script>
+(() => {
+  const $q=id=>document.getElementById(id);
+  const isM=()=>typeof lang!=="undefined"&&lang==="manglish";
+  const tog=$q("flToggle"), qIn=$q("flQ"), stat=$q("flStat"), card=$q("flInfo"), legend=$q("flLegend");
+  const FT=3.28084, KT=1.943844;
+  const F={on:false,list:[],byId:new Map(),sel:null,follow:false,timer:null,anim:null,busy:false,src:"",global:false,moveTm:null};
+  const M=()=>window.flowMap;
+  const code=()=>{ try{ return localStorage.getItem("flowCode")||""; }catch(e){ return ""; } };
+  const fmtN=n=>Number(n).toLocaleString("en-US");
+
+  // ---------- data
+  async function api(qs){
+    const r=await fetch("/api/flights"+(qs?"?"+qs:""),{headers:{"x-access-code":code()}});
+    const d=await r.json().catch(()=>({}));
+    if(r.status===401) throw new Error("Wrong access code. Refresh the page.");
+    if(r.status===404) throw new Error("Flight tracking needs the new api/flights.js file on your server.");
+    if(!r.ok){ const e=new Error(d.error||"Flight data is busy right now."); e.status=r.status; e.retry=d.retry; throw e; }
+    return d;
+  }
+  const toRows=d=>{ const now=Date.now(); return (d.f||[]).map(a=>({id:a[0],cs:a[1]||String(a[0]).toUpperCase(),cty:a[2]||"",lon:a[3],lat:a[4],alt:a[5]||0,spd:a[6]||0,hdg:a[7]||0,vr:a[8]||0,type:a[10]||"",reg:a[11]||"",t0:now})); };
+  function viewQuery(){
+    const m=M(); if(!m||!m.mapx||!m.mapx.getView) return {qs:"",area:99999};
+    const v=m.mapx.getView();
+    if(v.zoom<3.4||v.e<v.w||(v.e-v.w)>=300||(v.n-v.s)>=120) return {qs:"",area:99999};
+    const dLa=(v.n-v.s)*.2, dLo=(v.e-v.w)*.2;
+    const la0=Math.max(-90,Math.floor(v.s-dLa)), la1=Math.min(90,Math.ceil(v.n+dLa)), lo0=Math.max(-180,Math.floor(v.w-dLo)), lo1=Math.min(180,Math.ceil(v.e+dLo));
+    return {qs:"lamin="+la0+"&lomin="+lo0+"&lamax="+la1+"&lomax="+lo1,area:(la1-la0)*(lo1-lo0)};
+  }
+
+  // ---------- drawing (planes glide between updates)
+  const EMPTY={type:"FeatureCollection",features:[]};
+  function build(){
+    const now=Date.now(), feats=[];
+    for(const a of F.list){
+      const dt=Math.min(45,(now-a.t0)/1000); let lon=a.lon, lat=a.lat;
+      if(a.spd>25&&dt>1){ const d=a.spd*dt, h=a.hdg*Math.PI/180; lat+=d*Math.cos(h)/111320; lon+=d*Math.sin(h)/(111320*Math.max(.2,Math.cos(lat*Math.PI/180))); }
+      a.cl=lon; a.ca=lat;
+      feats.push({type:"Feature",geometry:{type:"Point",coordinates:[lon,lat]},properties:{id:a.id,cs:a.cs,alt:a.alt,hdg:a.hdg}});
+    }
+    return {type:"FeatureCollection",features:feats};
+  }
+  function draw(){
+    const m=M(); if(!m||!m.mapx||!m.mapx.setFlights) return;
+    m.mapx.setFlights(build());
+    const a=F.sel&&F.byId.get(F.sel);
+    m.mapx.setSelected(a?[a.cl,a.ca]:null);
+    if(a&&F.follow) m.mapx.center(a.ca,a.cl);
+    showCard();
+  }
+
+  // ---------- info card
+  function showCard(){
+    const a=F.sel&&F.byId.get(F.sel);
+    if(!a){ card.hidden=true; return; }
+    card.hidden=false; card.innerHTML="";
+    const h=document.createElement("h4"); h.textContent=a.cs; card.appendChild(h);
+    const sub=document.createElement("div"); sub.className="sub"; sub.textContent=[a.cty,a.type,a.reg].filter(Boolean).join(" • ")||"ICAO "+a.id.toUpperCase(); card.appendChild(sub);
+    const g=document.createElement("div"); g.className="grid";
+    const row=(k,v)=>{ const x=document.createElement("span"); x.textContent=k; const y=document.createElement("span"); y.textContent=v; g.append(x,y); };
+    const vr=Math.round(a.vr*196.85);
+    row("Altitude",fmtN(Math.round(a.alt*FT))+" ft"+(a.alt>3000?"  (FL"+String(Math.round(a.alt*FT/100)).padStart(3,"0")+")":""));
+    row("Speed",Math.round(a.spd*KT)+" kt  ("+Math.round(a.spd*3.6)+" km/h)");
+    row("Heading",String(Math.round(a.hdg)).padStart(3,"0")+"°");
+    row("Climb",(vr>40?"▲ ":vr<-40?"▼ ":"")+fmtN(vr)+" ft/min");
+    row("Position",Math.abs(a.ca).toFixed(2)+"°"+(a.ca>=0?"N":"S")+" "+Math.abs(a.cl).toFixed(2)+"°"+(a.cl>=0?"E":"W"));
+    card.appendChild(g);
+    const b=document.createElement("div"); b.className="btns";
+    const f=document.createElement("button"); f.type="button"; f.textContent=F.follow?"FOLLOWING ✓":"FOLLOW"; f.onclick=()=>{ F.follow=!F.follow; if(F.follow&&M().mapx) M().mapx.fly(a.ca,a.cl,Math.max(7,0)); showCard(); };
+    const l=document.createElement("a"); l.className="btn"; l.target="_blank"; l.rel="noopener"; l.href="https://globe.adsbexchange.com/?icao="+encodeURIComponent(a.id); l.textContent="ADS-B MAP";
+    const x=document.createElement("button"); x.type="button"; x.textContent="CLOSE"; x.onclick=()=>select(null);
+    b.append(f,l,x); card.appendChild(b);
+  }
+  function select(id,fly){
+    F.sel=id; F.follow=false; const a=id&&F.byId.get(id);
+    if(a&&fly&&M().mapx) M().mapx.fly(a.ca||a.lat,a.cl||a.lon,8);
+    draw(); if(!a) card.hidden=true;
+  }
+
+  // ---------- polling
+  async function poll(){
+    clearTimeout(F.timer); if(!F.on) return;
+    if(F.busy||document.hidden){ F.timer=setTimeout(poll,8000); return; }
+    F.busy=true; let next=15000;
+    try{
+      const vq=viewQuery(), d=await api(vq.qs);
+      F.src=d.src||""; F.global=!vq.qs; F.list=toRows(d); F.byId=new Map(F.list.map(a=>[a.id,a]));
+      draw();
+      stat.textContent="✈ "+fmtN(F.list.length)+" aircraft "+(F.global?"worldwide":"in view")+"  •  "+F.src+"  •  updated "+new Date().toLocaleTimeString([], {hour:"2-digit",minute:"2-digit",second:"2-digit"});
+      next=vq.qs?(vq.area>=400?30000:15000):75000;
+    }catch(e){ stat.textContent="✈ "+e.message; next=e.status===429?Math.max(90,e.retry||0)*1000:30000; }
+    F.busy=false; if(F.on) F.timer=setTimeout(poll,next);
+  }
+  async function enable(on){
+    F.on=on; tog.textContent="✈ FLIGHTS: "+(on?"ON":"OFF"); tog.classList.toggle("on",on); legend.hidden=!on;
+    clearTimeout(F.timer); clearInterval(F.anim);
+    const m=M();
+    if(!on){ if(m&&m.mapx&&m.mapx.setFlights){ m.mapx.setFlights(EMPTY); m.mapx.setSelected(null); } card.hidden=true; stat.textContent=""; F.sel=null; return true; }
+    stat.textContent="✈ Loading live flights…";
+    if(!(await m.initMap())){ F.on=false; tog.textContent="✈ FLIGHTS: OFF"; tog.classList.remove("on"); legend.hidden=true; stat.textContent="The map couldn't load, so flights can't be shown."; return false; }
+    m.mapx.flightsInit(); m.mapx.onFlight=p=>select(p.id,false);
+    m.mapx.onMove=()=>{ if(F.on&&!F.busy){ clearTimeout(F.moveTm); F.moveTm=setTimeout(poll,200); } };
+    F.anim=setInterval(()=>{ if(F.on&&!document.hidden&&F.list.length<=7000) draw(); },2500);
+    await poll(); return true;
+  }
+  tog.onclick=()=>enable(!F.on);
+
+  // ---------- find a flight by callsign
+  const norm=s=>String(s||"").toUpperCase().replace(/[^A-Z0-9]/g,"");
+  async function findFlight(q){
+    q=norm(q); if(q.length<3) return {err:isM()?"Flight number parayoo, AT.":"Give me a flight number, for example AIC681, AT."};
+    let a=null, pool=F.list;
+    const look=list=>list.find(x=>norm(x.cs)===q)||list.find(x=>norm(x.cs).startsWith(q))||list.find(x=>x.reg&&norm(x.reg)===q)||list.find(x=>x.id.toUpperCase()===q);
+    a=look(pool);
+    if(!a){ try{ const d=await api(""); pool=toRows(d); a=look(pool); if(a){ F.list=pool; F.byId=new Map(pool.map(x=>[x.id,x])); F.global=true; } }catch(e){ return {err:e.message}; } }
+    if(!a) return {none:true};
+    if(!F.on) await enable(true);
+    F.list=F.list.length>pool.length?F.list:pool; F.byId=new Map(F.list.map(x=>[x.id,x]));
+    a.cl=a.lon; a.ca=a.lat; select(a.id,true);
+    return {a};
+  }
+  const describe=a=>a.cs+(a.cty?" ("+a.cty+")":"")+" is at "+fmtN(Math.round(a.alt*FT))+" feet, moving at "+Math.round(a.spd*KT)+" knots, heading "+Math.round(a.hdg)+" degrees";
+  async function onFind(){ const q=qIn.value.trim(); if(!q) return; stat.textContent="✈ Searching…"; const r=await findFlight(q);
+    stat.textContent=r.a?("✈ "+describe(r.a)+"."):(r.err||"✈ "+q.toUpperCase()+" isn't in the live feed right now (it may be on the ground or out of receiver range)."); }
+  $q("flFind").onclick=onFind; qIn.addEventListener("keydown",e=>{ if(e.key==="Enter"){ e.preventDefault(); onFind(); } });
+
+  // ---------- "what's above me?"
+  async function nearMe(){
+    const m=M(); try{ await m.getFix(); }catch(e){ return m.geoErr(e); }
+    const p=m.pos, d=1.5;
+    let rows; try{ rows=toRows(await api("lamin="+Math.max(-90,Math.floor(p.lat-d))+"&lomin="+Math.max(-180,Math.floor(p.lon-d))+"&lamax="+Math.min(90,Math.ceil(p.lat+d))+"&lomax="+Math.min(180,Math.ceil(p.lon+d)))); }catch(e){ return e.message; }
+    rows.forEach(a=>{ a.km=m.dist(p,{lat:a.lat,lon:a.lon})/1000; });
+    const close=rows.filter(a=>a.km<=150).sort((x,y)=>x.km-y.km);
+    await enable(true); if(m.mapx) m.mapx.fly(p.lat,p.lon,7);
+    if(!close.length) return isM()?"150 km-inu ullil oru vimanavum kaanunnilla, AT. Ee pradeshathu receiver coverage kuravaayirikkam.":"I can't see any aircraft within 150 kilometres right now, AT. Receiver coverage can be thin in some regions.";
+    const n=close[0];
+    return isM()?close.length+" vimanangal 150 km-inu ullil und, AT. Ettavum aduthathu "+n.cs+", "+Math.round(n.km)+" km akale, "+fmtN(Math.round(n.alt*FT))+" adi uyarathil.":
+      close.length+" aircraft within 150 kilometres, AT. The nearest is "+n.cs+", "+Math.round(n.km)+" kilometres away at "+fmtN(Math.round(n.alt*FT))+" feet, heading "+Math.round(n.hdg)+" degrees.";
+  }
+
+  // ---------- voice and typed commands
+  const ND="(?:please\\s+)?", FL="(?:flights?|planes?|aircraft|air\\s*traffic|flight\\s*radar|flightradar)";
+  const CMDS=[
+    ["off", new RegExp("^"+ND+"(?:hide|stop|turn\\s+off|disable|close|remove)\\s+(?:the\\s+)?(?:live\\s+)?"+FL+"(?:\\s+tracking)?$","i")],
+    ["near",new RegExp("^"+ND+"(?:(?:what|which)\\s+|(?:show|find|track|display)\\s+(?:me\\s+)?(?:the\\s+)?(?:live\\s+)?)?"+FL+"\\s+(?:are\\s+)?(?:near|above|over|around|overhead)\\s*(?:me|here|my\\s+location)?$|^"+ND+"how\\s+many\\s+"+FL+"\\s+(?:are\\s+)?(?:near|above|over|around)\\s+(?:me|here)$|^"+ND+"what(?:'s|\\s+is)\\s+(?:flying\\s+)?(?:above|overhead)(?:\\s+me)?$","i")],
+    ["over",new RegExp("^"+ND+"(?:show|find|track|display)\\s+(?:me\\s+)?(?:the\\s+)?(?:live\\s+)?"+FL+"\\s+(?:over|in|near|around|above)\\s+(.+)$","i")],
+    ["find",new RegExp("^"+ND+"(?:find|track|locate|where\\s+is|follow|show)\\s+(?:me\\s+)?(?:the\\s+)?flight\\s+([a-z0-9][a-z0-9\\s-]{2,9})$","i")],
+    ["on",  new RegExp("^"+ND+"(?:show|start|turn\\s+on|enable|open|display)\\s+(?:me\\s+)?(?:the\\s+)?(?:live\\s+|all\\s+)?"+FL+"(?:\\s+tracking|\\s+tracker)?$|^"+ND+"(?:track|tracking)\\s+(?:all\\s+)?(?:the\\s+)?"+FL+"$|^flight\\s*radar$|^flights?\\s+(?:kaanikk(?:u|oo)|thurakk(?:u|oo))$","i")]
+  ];
+  const clean=t=>t.replace(/^(?:(?:hey|hi|hello|okay|ok|yo)[\s,]+)?(?:flow|floor|flo)\b[\s,.:!?-]*/i,"").replace(/[.!?]+$/,"").trim();
+  function flCmd(t){ const c=clean(t); for(const [k,re] of CMDS){ const m=c.match(re); if(m) return {k,arg:(m[1]||"").trim()}; } return null; }
+  const baseLooks=window.looksLikeCommand; window.looksLikeCommand=t=>(baseLooks?baseLooks(t):false)||!!flCmd(t);
+  const prev=window.localCommand;
+  window.localCommand=async function(text){
+    const c=flCmd(text); if(!c) return prev(text);
+    const panel=$q("mapPanel"); panel.scrollIntoView({behavior:"smooth",block:"center"});
+    await flowRespond(text,async()=>{
+      if(c.k==="off"){ await enable(false); return isM()?"Flight tracking nirthi, AT.":"Flight tracking is off, AT."; }
+      if(c.k==="near") return nearMe();
+      if(c.k==="over"&&/^(?:me|here|my\s+location|us)$/i.test(c.arg)) return nearMe();
+      if(c.k==="over"){
+        const m=M(); let g=null; try{ g=await m.geocode(c.arg,false); }catch(e){}
+        if(!g) return isM()?c.arg+" kittiyilla, AT.":"I couldn't find "+c.arg+", AT.";
+        if(!(await m.initMap())) return "The map isn't available, AT.";
+        m.mapx.fly(g.lat,g.lon,6); await enable(true);
+        setTimeout(poll,2800);
+        return isM()?g.name+"-nu mukalile flights kaanikkunnu, AT.":"Showing live flights over "+g.name+", AT.";
+      }
+      if(c.k==="find"){ const r=await findFlight(c.arg); if(r.a) return describe(r.a)+", AT."; return r.err||(isM()?c.arg.toUpperCase()+" ippo live feed-il illa, AT.":c.arg.toUpperCase()+" isn't in the live feed right now, AT. It may be on the ground or out of receiver range."); }
+      const ok=await enable(true); if(!ok) return "The map isn't available, AT.";
+      await new Promise(r=>setTimeout(r,2500));
+      return F.list.length?(isM()?"Live flights on aakki, AT. "+fmtN(F.list.length)+" vimanangal kaanunnu.":"Live flights are on, AT. I can see "+fmtN(F.list.length)+" aircraft. Tap one for details."):(isM()?"Flights on aakki, AT. Data varunnathuvare kaathirikkoo.":"Live flights are on, AT. Waiting for the data to arrive.");
+    });
+    return true;
+  };
+  window.flowFlights={enable,findFlight,state:F};
 })();
 </script>
 <script>
