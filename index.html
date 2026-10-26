@@ -342,6 +342,21 @@ body::-webkit-scrollbar-thumb{background:linear-gradient(#5cecff,#2879ff);border
 .flowname{margin:-2px 0 -6px;padding-left:0;line-height:0}
 .flowname canvas{display:block;width:min(400px,94%);height:150px;margin:0 auto}
 #bootLogo{display:block;width:100%;height:190px;margin:0 0 6px}
+/* readable answers */
+.msg.bot .md{white-space:normal;display:block}
+.msg.bot .md p{margin:.45em 0}
+.msg.bot .md p:first-child{margin-top:0}
+.msg.bot .md .mdh{font-weight:700;color:var(--cy);letter-spacing:.04em}
+.msg.bot .md ul,.msg.bot .md ol{margin:.4em 0;padding-left:1.3em}
+.msg.bot .md li{margin:.2em 0}
+.msg.bot .md code{background:rgba(92,236,255,.14);padding:1px 5px;font-family:"Share Tech Mono",monospace}
+.msg.bot .md pre{background:rgba(2,10,22,.85);border:1px solid rgba(92,236,255,.35);padding:8px 10px;overflow:auto;margin:.5em 0}
+.msg.bot .md pre code{background:none;padding:0}
+.msg.bot .md a{color:#5cecff}
+.msg.bot .srcs{margin-top:8px;font-size:11px;opacity:.85;line-height:1.7}
+.msg.bot .srcs a{margin-right:6px}
+#vm-depth,#vm-search{background:transparent;border:1px solid rgba(92,236,255,.55);color:var(--cy);font:inherit;letter-spacing:.08em;padding:4px 7px;cursor:pointer;white-space:nowrap}
+#vm-depth:hover,#vm-search:hover{background:rgba(92,236,255,.15)}
 </style>
 </head>
 <body>
@@ -455,7 +470,7 @@ body::-webkit-scrollbar-thumb{background:linear-gradient(#5cecff,#2879ff);border
       <div class="telemetry-cell"><div class="telemetry-label"><span>REPLY STREAM</span><b id="g-stream-label">IDLE</b></div><div class="telemetry-track"><i id="main-stream"></i></div></div>
     </section>    <section class="panel chat"><div class="chat-heading"><span>CHAT WITH FLOW</span><span>TYPE BELOW OR TAP VOICE</span></div>
       <section class="welcome-dashboard" id="welcome-dashboard" aria-label="Live clock and voice meter"><div class="hud-ring welcome-clock" id="ring-time" style="--progress:0%"><div class="hud-ring-content"><strong id="g-time">--:--</strong><small>LOCAL TIME</small></div></div><div class="welcome-meter"><div class="welcome-meter-head"><strong>VOICE LEVEL</strong><span id="voice-meter-status">MIC OFF</span></div><div class="welcome-voice-bars" id="voice-meter-bars" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="welcome-meter-foot"><span id="voice-meter-hint">SELECT VOICE TO START</span><b id="voice-meter-value">0%</b></div></div></section><div id="log"><div class="note" id="hello">// Awaiting input. Say hello to begin.</div></div>
-      <div id="vmeter" aria-label="Voice meter"><span id="vm-state">VOICE IDLE</span><div id="vm-bars"></div><span id="vm-pct">0%</span><button id="vm-speak" type="button" title="Flow reads every answer aloud">SPEAK ON</button><button id="vm-stop" type="button" title="Stop talking">STOP</button><button id="vm-lang" type="button" title="Switch between English and Manglish"></button><button id="vm-mem" type="button" title="Open Flow's memory">MEMORY</button><button id="vm-wake" type="button" title="Say Hey Flow to wake it, hands-free">WAKE: OFF</button><select id="vm-rl" title="Language Flow listens for"><option value="auto">LISTEN: AUTO</option><option value="en_in">English (India)</option><option value="en_gb">English (UK)</option><option value="en_us">English (US)</option><option value="ml">Malayalam</option><option value="hi">Hindi</option></select></div>
+      <div id="vmeter" aria-label="Voice meter"><span id="vm-state">VOICE IDLE</span><div id="vm-bars"></div><span id="vm-pct">0%</span><button id="vm-speak" type="button" title="Flow reads every answer aloud">SPEAK ON</button><button id="vm-stop" type="button" title="Stop talking">STOP</button><button id="vm-lang" type="button" title="Switch between English and Manglish"></button><button id="vm-mem" type="button" title="Open Flow's memory">MEMORY</button><button id="vm-depth" type="button" title="How detailed answers are: Quick, Smart or Deep"></button><button id="vm-search" type="button" title="Look things up on the web: Auto, On or Off"></button><button id="vm-wake" type="button" title="Say Hey Flow to wake it, hands-free">WAKE: OFF</button><select id="vm-rl" title="Language Flow listens for"><option value="auto">LISTEN: AUTO</option><option value="en_in">English (India)</option><option value="en_gb">English (UK)</option><option value="en_us">English (US)</option><option value="ml">Malayalam</option><option value="hi">Hindi</option></select></div>
       <div class="bar">
         <textarea id="input" rows="1" placeholder="Message Flow…"></textarea>
         <button id="mic" class="orb" title="Voice mode">Mic</button>
@@ -509,7 +524,7 @@ body::-webkit-scrollbar-thumb{background:linear-gradient(#5cecff,#2879ff);border
   <div class="tray orb"><span id="tray-up">--</span><span id="tray-st">ONLINE</span><span id="tray-time">--:--</span></div>
 </nav>
 <script>
-const PERSONA = "Your name is Flow. If asked your name, say you are Flow. The user’s preferred name is AT; address them naturally as AT, especially in spoken replies, without repeating it too often. You are a friendly, helpful AI assistant shown in a futuristic heads-up-display style interface. Replies are often spoken aloud, so speak like a calm, polished, quietly witty British butler-style assistant: one to three short sentences unless asked for detail, no markdown, lists or emojis.";
+const PERSONA = "Your name is Flow. If asked your name, say you are Flow. The user’s preferred name is AT; address them naturally as AT, especially at the start of spoken replies, without repeating it too often. You are Flow, a brilliant, warm and calm AI assistant shown in a futuristic heads-up-display interface, with the polished, quietly witty manner of a British butler-style assistant.";
 const $ = id => document.getElementById(id);
 const log=$("log"), input=$("input"), sendBtn=$("send"), hud=$("hud");
 let history=[], busy=false, sample=null, sessionStart=Date.now(), replies=0, lastMs=0, connectionState="";
@@ -552,15 +567,16 @@ async function connectFlow(){
       connectionNote("key", "// The server has no API key yet. Add it in your hosting settings and redeploy.");
       sendBtn.disabled=true; return;
     }
+    window.__flowV=state.v||1;
     sample=async(messages,options={})=>{
-      const response=await fetch("/api/chat",{method:"POST",headers:{"Content-Type":"application/json","x-access-code":code},body:JSON.stringify({messages})});
+      const response=await fetch("/api/chat",{method:"POST",headers:{"Content-Type":"application/json","x-access-code":code},body:JSON.stringify({messages,system:options.system,search:options.search,depth:options.depth})});
       const data=await response.json().catch(()=>({}));
       if(response.status===401){ try{ localStorage.removeItem("flowCode"); }catch(e){} throw new Error("Wrong access code. Refresh and try again."); }
       if(!response.ok) throw new Error(data.error||"The AI could not answer. Check your API key and connection.");
       const text=String(data.reply||"").trim();
-      if(!text) throw new Error("OpenAI returned an empty answer.");
+      if(!text) throw new Error("The AI returned an empty answer.");
       if(options.onText) options.onText({text});
-      return {text};
+      return {text,sources:data.sources||[]};
     };
     $("up").textContent="Linked"; $("tray-up").textContent="LINK"; bar("b-up",100);
     sendBtn.disabled=false; connectionNote("online", "// Connected. Type a message or use Voice.");
@@ -590,12 +606,13 @@ async function send(){
   input.value=""; input.style.height="auto";
   add("user",text);
   history.push({role:"user",content:text}); stats();
-  const msgs=history.map((m,i)=>i===0?{role:m.role,content:buildPreface()+"\n\n"+m.content}:m);
+  const so=flowSendOptions(); const msgs=so.system?history.map(m=>({role:m.role,content:m.content})):history.map((m,i)=>i===0?{role:m.role,content:buildPreface()+"\n\n"+m.content}:m);
+  const doSearch=flowShouldSearch(text);
   const out=add("bot","…");
   setBusy(true); const t0=Date.now();
   try{
-    const res=await sample(msgs,{cache:false,onText:({text})=>{out.textContent=text;log.scrollTop=log.scrollHeight;}});
-    out.textContent=res.text; history.push({role:"assistant",content:res.text}); saveHist(); replies++; lastMs=Date.now()-t0;
+    const res=await sample(msgs,{cache:false,system:so.system,depth:so.depth,search:doSearch,onText:({text})=>{setBot(out,text);log.scrollTop=log.scrollHeight;}});
+    setBot(out,res.text); showSources(out,res.sources); history.push({role:"assistant",content:res.text}); saveHist(); replies++; lastMs=Date.now()-t0;
   }catch(e){
     out.textContent=e.code==="rate_limited"?"// Rate limit reached. Retry shortly.":e.code==="not_granted"?"// Permission declined.":"// "+(e.message||"AI request failed. Check the server and API key.");
     history.pop();
@@ -623,7 +640,7 @@ try{ autoSpeak=localStorage.getItem("flowSpeak")!=="off"; }catch(e){}
 function stopSpeaking(){ speakToken++; if(synth) try{ synth.cancel(); }catch(e){} }
 function speak(text){
   if(!synth) return Promise.resolve();
-  const clean=String(text).replace(/[*_#`>\[\]]/g,"").replace(/\s+/g," ").trim();
+  const clean=(window.flowCondense?flowCondense(text):String(text));
   const parts=clean.match(/[^.!?\n]+[.!?]*/g)||[clean];
   stopSpeaking(); const token=speakToken;
   return new Promise(res=>{ let k=0;
@@ -892,7 +909,7 @@ $("tb-full").onclick=()=>{ Promise.resolve().then(()=>document.fullscreenElement
   // ---- prompt preface: persona + language + long-term memory
   window.buildPreface=()=>{
     let p=PERSONA;
-    if(isM()) p+="\n\nLANGUAGE MODE: Manglish. Reply in Manglish: Malayalam written in English (Roman) letters, the casual way people in Kerala type, freely mixing common English words (for example: \"Enthaa AT, sukhamano? Njan ready aanu.\"). Never use Malayalam script. Drop the British butler style in this mode and be warm and friendly. Keep replies short and natural.";
+    if(isM()) p+="\n\nLANGUAGE MODE: Manglish. Reply in Manglish: Malayalam written in English (Roman) letters, the casual way people in Kerala type, freely mixing common English words (for example: \"Enthaa AT, sukhamano? Njan ready aanu.\"). Never use Malayalam script. Drop the British butler style in this mode and be warm and friendly. Follow the answer-depth rule below, but keep the tone warm and natural.";
     else p+="\n\nLANGUAGE MODE: English. Reply in English, unless the user writes in Manglish or Malayalam, in which case you may answer in Manglish (Malayalam in English letters).";
     if(facts.length) p+="\n\nLONG-TERM MEMORY. These notes were saved by the user; treat them as true facts about them and use them only when relevant:\n"+facts.map(f=>"- "+f).join("\n");
     return p;
@@ -905,7 +922,7 @@ $("tb-full").onclick=()=>{ Promise.resolve().then(()=>document.fullscreenElement
     if(Array.isArray(h)&&h.length&&h[0].role==="user"){
       history=h.filter(m=>m&&typeof m.content==="string"&&(m.role==="user"||m.role==="assistant"));
       document.getElementById("hello")?.remove();
-      history.forEach(m=>add(m.role==="user"?"user":"bot",m.content));
+      history.forEach(m=>{ const el=add(m.role==="user"?"user":"bot",m.content); if(m.role!=="user"&&window.setBot) setBot(el,m.content); });
       stats();
     }
   }catch(e){}
@@ -1627,6 +1644,93 @@ $("tb-full").onclick=()=>{ Promise.resolve().then(()=>document.fullscreenElement
 })();
 
 (function(){ var a=document.getElementById("bootLogo"), b=document.getElementById("logo3d"); if(a) FlowLogo3D(a,{speed:.9}); if(b) FlowLogo3D(b,{speed:.35}); })();
+</script>
+<script>
+(() => {
+  const ls={ get(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } }, set(k,v){ try{ localStorage.setItem(k,v); }catch(e){} } };
+  const isM=()=>typeof lang!=="undefined"&&lang==="manglish";
+
+  // ---------- answer depth: QUICK / SMART / DEEP   and   web search: AUTO / ON / OFF
+  const DEPTHS=["quick","smart","deep"], SEARCHES=["auto","on","off"];
+  let depth=ls.get("flowDepth"); if(DEPTHS.indexOf(depth)<0) depth="smart";
+  let searchMode=ls.get("flowSearch"); if(SEARCHES.indexOf(searchMode)<0) searchMode="auto";
+  const dBtn=document.getElementById("vm-depth"), sBtn=document.getElementById("vm-search");
+  const paint=()=>{ dBtn.textContent="DEPTH: "+depth.toUpperCase(); sBtn.textContent="SEARCH: "+searchMode.toUpperCase(); };
+  dBtn.onclick=()=>{ depth=DEPTHS[(DEPTHS.indexOf(depth)+1)%3]; ls.set("flowDepth",depth); paint(); };
+  sBtn.onclick=()=>{ searchMode=SEARCHES[(SEARCHES.indexOf(searchMode)+1)%3]; ls.set("flowSearch",searchMode); paint(); };
+  paint();
+  window.flowDepth=()=>depth;
+
+  const RULE={
+    quick:"ANSWER DEPTH: QUICK. Reply in one to three short sentences. Give only the answer and the single most useful fact.",
+    smart:"ANSWER DEPTH: SMART. Give a complete, well-organised answer. Start with the direct answer in one or two sentences, then add the most useful details: key facts, numbers, reasons, and a short example where it helps. Usually 80 to 220 words. Use short paragraphs and bullet points when they make it clearer.",
+    deep:"ANSWER DEPTH: DEEP. Give a thorough, expert-level explanation. Start with a short summary, then cover the details in clearly labelled sections: how it works, step-by-step reasoning or instructions, examples, edge cases, common mistakes and practical tips. Up to about 500 words."
+  };
+  const baseP=window.buildPreface;
+  window.buildPreface=()=>{
+    let p=baseP();
+    p+="\n\nHOW TO ANSWER: You are a knowledgeable, careful and genuinely helpful assistant. Put the direct answer first, because the first sentences are also read aloud. Be accurate and specific: use real facts, figures and examples, and never invent facts, quotes, links or statistics. If you are not sure, say so and explain how to check. For maths, logic, code and planning, work step by step and show the key steps. If a question is ambiguous, answer the most likely meaning and briefly state your assumption. Explain unfamiliar terms in plain words. You may use light markdown: **bold** for key terms, short bullet lists and numbered steps. No emojis unless the user uses them. If WEB RESULTS are provided, base the answer on them and cite them as [1], [2]; if they do not help, ignore them."+
+       "\n\n"+RULE[depth]+
+       "\n\nCurrent date and time for the user: "+new Date().toLocaleString("en-GB",{dateStyle:"full",timeStyle:"short"})+" ("+(Intl.DateTimeFormat().resolvedOptions().timeZone||"local time")+").";
+    return p;
+  };
+
+  // ---------- when to search the web
+  const NEEDS=/\b(latest|news|today|tonight|current|currently|right now|recent|recently|price of|stock|score|result|results|weather|forecast|who is|who was|who are|what is|what are|what was|when did|when was|when is|where is|how many|how much|how old|how tall|population|capital of|release date|released|winner|won the|ceo of|president|prime minister|tell me about|facts about|history of|define|meaning of|explain|difference between|versus|review|best|top \d+)\b|\b20(2[4-9]|3\d)\b/i;
+  window.flowShouldSearch=t=>{
+    t=String(t||"").trim(); if(t.length<8||searchMode==="off") return false;
+    if(searchMode==="on") return true;
+    return NEEDS.test(t)&&!/^(hi|hello|hey|thanks|thank you|ok|okay)\b/i.test(t);
+  };
+  window.flowSendOptions=()=>({depth,system:(window.__flowV||1)>=2?window.buildPreface():undefined});
+
+  // ---------- readable answers: safe markdown -> HTML
+  const esc=s=>s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  function inline(s){
+    s=esc(s);
+    s=s.replace(/`([^`]+)`/g,"<code>$1</code>");
+    s=s.replace(/\*\*([^*]+)\*\*/g,"<strong>$1</strong>");
+    s=s.replace(/(^|[\s(])\*([^*\s][^*]*)\*/g,"$1<em>$2</em>");
+    s=s.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,'<a href="$2" target="_blank" rel="noopener">$1</a>');
+    s=s.replace(/(^|[\s(>])(https?:\/\/[^\s<)]+)/g,'$1<a href="$2" target="_blank" rel="noopener">$2</a>');
+    return s;
+  }
+  function md(text){
+    const lines=String(text).replace(/\r/g,"").split("\n"); let out="", list=null, para=[], code=null;
+    const flush=()=>{ if(para.length){ out+="<p>"+inline(para.join(" "))+"</p>"; para=[]; } };
+    const close=()=>{ if(list){ out+="</"+list+">"; list=null; } };
+    for(const raw of lines){
+      if(/^```/.test(raw)){ if(code===null){ flush(); close(); code=[]; } else { out+="<pre><code>"+esc(code.join("\n"))+"</code></pre>"; code=null; } continue; }
+      if(code!==null){ code.push(raw); continue; }
+      const l=raw.trim(); let m;
+      if(!l){ flush(); close(); continue; }
+      if((m=l.match(/^#{1,4}\s+(.*)$/))){ flush(); close(); out+='<p class="mdh">'+inline(m[1])+"</p>"; continue; }
+      if((m=l.match(/^[-*•]\s+(.*)$/))){ flush(); if(list!=="ul"){ close(); out+="<ul>"; list="ul"; } out+="<li>"+inline(m[1])+"</li>"; continue; }
+      if((m=l.match(/^\d+[.)]\s+(.*)$/))){ flush(); if(list!=="ol"){ close(); out+="<ol>"; list="ol"; } out+="<li>"+inline(m[1])+"</li>"; continue; }
+      close(); para.push(l);
+    }
+    if(code!==null) out+="<pre><code>"+esc(code.join("\n"))+"</code></pre>";
+    flush(); close(); return out;
+  }
+  window.flowMd=md;
+  window.setBot=(el,text)=>{ el.classList.add("md"); el.innerHTML=md(text); };
+  window.showSources=(el,sources)=>{
+    if(!sources||!sources.length) return;
+    const d=document.createElement("div"); d.className="srcs"; d.appendChild(document.createTextNode("Sources: "));
+    sources.forEach((s,i)=>{ if(!/^https?:\/\//.test(s.url||"")) return; const a=document.createElement("a"); a.href=s.url; a.target="_blank"; a.rel="noopener"; a.textContent="["+(i+1)+"] "+(s.title||s.url).slice(0,60); d.appendChild(a); d.appendChild(document.createTextNode("  ")); });
+    el.appendChild(d);
+  };
+
+  // ---------- spoken version: markdown stripped, long answers trimmed (full answer stays on screen)
+  // restored conversation (rendered before this script ran) gets the same formatting
+  document.querySelectorAll(".msg.bot > span").forEach(sp=>{ if(!sp.classList.contains("md")&&sp.textContent!=="…") window.setBot(sp,sp.textContent); });
+  window.flowCondense=text=>{
+    let t=String(text).replace(/```[\s\S]*?```/g," code block. ").replace(/https?:\/\/\S+/g," link ").replace(/\[(\d+)\]/g,"").replace(/[*_#`>\[\]]/g,"").replace(/^[-•]\s+/gm,"").replace(/\s+/g," ").trim();
+    if(t.length>560){ const cut=t.slice(0,560), i=Math.max(cut.lastIndexOf(". "),cut.lastIndexOf("? "),cut.lastIndexOf("! "));
+      t=(i>180?cut.slice(0,i+1):cut)+(isM()?" Poorna utharam screen-il und, AT.":" The full answer is on screen, AT."); }
+    return t;
+  };
+})();
 </script>
 <script>
 (() => {
