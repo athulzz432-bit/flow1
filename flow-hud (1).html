@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Flow HUD</title>
+<style>
+  :root { --bg:#02060f; --ink:#5ee7ff; --dim:#1b4a5c; }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; background: var(--bg); color: #cfefff; font-family: system-ui, sans-serif; }
+  body { display: grid; place-items: center; align-content: center; gap: 14px; padding: 16px; }
+  #hud { width: min(96vw, 960px); }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+  button.b { background: transparent; color: var(--ink); border: 1px solid var(--dim); border-radius: 999px; padding: 8px 16px; font: inherit; cursor: pointer; }
+  button.b:hover, button.b:focus-visible { border-color: var(--ink); outline: none; }
+  #log { max-width: 520px; min-height: 2.6em; text-align: center; opacity: .8; }
+</style>
+</head>
+<body>
+
+<!-- 1) Put this where the HUD should appear (it matches the camera's shape once the camera starts) -->
+<div id="hud"></div>
+
+<div class="row">
+  <button class="b" id="cam">Camera on</button>
+  <button class="b" id="mini">Small view</button>
+  <button class="b" data-s="idle">Idle</button>
+  <button class="b" data-s="thinking">Thinking</button>
+  <button class="b" data-s="speaking">Speaking</button>
+  <button class="b" id="demo">Demo reply</button>
+  <button class="b" id="say">Speak aloud</button>
+</div>
+<div id="log"></div>
+
+<script>
+/* ============ 2) FlowHUD: copy this block into your Flow page ============ */
+const FlowHUD = (() => {
+  const TAU = Math.PI * 2;
+  const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+  const lerp = (a, b, k) => a + (b - a) * k;
+  const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const MP = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14";
+  const MODEL = "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task";
+  const MONO = "ui-monospace, Menlo, Consolas, monospace";
+  const fmt = v => (v >= 0 ? "+" : "\u2212") + Math.abs(v).toFixed(2);
+
+  let styled = false;
+  function injectStyle() {
+    if (styled) return; styled = true;
+    const st = document.createElement("style");
+    st.textContent = `
+      .fh{position:relative;overflow:hidden;background:#02060f;aspect-ratio:16/9;--h:195}
+      .fh-v{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transform:scaleX(-1);
+        filter:contrast(1.15) brightness(.8) saturate(.55);opacity:0;transition:opacity .6s}
+      .fh.on .fh-v{opacity:1}
+      .fh-tint{position:absolute;inset:0;pointer-events:none;mix-blend-mode:multiply;
+        background:radial-gradient(ellipse at 50% 45%,transparent 35%,rgba(2,6,15,.85) 100%),hsla(var(--h),85%,32%,.4)}
+      .fh-scan{position:absolute;inset:0;pointer-events:none;mix-blend-mode:multiply;
+        background:repeating-linear-gradient(to bottom,rgba(0,0,0,.2) 0 1px,transparent 1px 3px)}
+      .fh-c{position:absolute;inset:0;width:100%;height:100%}
+      .fh-start{position:absolute;inset:0;display:grid;place-content:center;justify-items:center;gap:10px;text-align:center;padding:16px}
+      .fh.on .fh-start{display:none}
+      .fh-start button{background:rgba(2,6,15,.6);color:#5ee7ff;border:1px solid #5ee7ff;border-radius:999px;
+        padding:12px 22px;font:inherit;font-size:1rem;cursor:pointer;box-shadow:0 0 18px rgba(94,231,255,.35)}
+      .fh-start button:focus-visible{outline:2px solid #fff}
+      .fh-start p{margin:0;max-width:34ch;font-size:.85rem;opacity:.75;color:#cfefff}
+      .fh-mini{position:fixed!important;right:16px;bottom:16px;width:240px!important;z-index:50;
+        border:1px solid rgba(94,231,255,.55);border-radius:12px;box-shadow:0 0 24px rgba(94,231,255,.25)}
+    `;
+    document.head.appendChild(st);
+  }
+
+  function mount(host, opts = {}) {
+    injectStyle();
+    host.classList.add("fh");
+    host.innerHTML = `
+      <video class="fh-v" playsinline muted></video>
+      <div class="fh-tint"></div><div class="fh-scan"></div>
+      <canvas class="fh-c" role="img" aria-label="Flow camera HUD with eye tracking"></canvas>
+      <div class="fh-start"><button type="button">Turn on camera</button>
+        <p>Eye tracking runs inside your browser. Your video is never uploaded.</p></div>`;
+    const video = host.querySelector("video");
+    const cv = host.querySelector("canvas");
+    const ctx = cv.getContext("2d");
+    host.querySelector(".fh-start button").addEventListener("click", () => api.start());
+
+    let W = 2, H = 2, dpr = 1;
+    function resize() {
+      dpr = Math.min(devicePixelRatio || 1, 2);
+      const r = host.getBoundingClientRect();
+      W = Math.max(2, Math.round(r.width * dpr)); H = Math.max(2, Math.round(r.height * dpr));
+      cv.width = W; cv.height = H;
+    }
+    new ResizeObserver(resize).observe(host);
+    resize();
+
+    /* ---- tracking state ---- */
+    let stream = null, running = false, starting = false;
+    let mod = null, landmarker = null, conn = {};
+    let face = null, lock = 0;
+    const gaze = { x: 0, y: 0 }, head = { x: 0, y: 0 };
+    let lastVT = -1, lastTs = 0, lat = 0, fps = 0, fpsC = 0, fpsT = performance.now();
+    let status = "", statusBad = false;
+
+    /* ---- Flow state ---- */
+    let state = "idle", level = 0, shown = 0, lastPulse = 0, hue = 195, thinkE = 0, speakE = 0, flash = 0;
+    const start0 = performance.now();
+
+    function setStatus(s, bad) { status = s; statusBad = !!bad; }
+    const errText = e => {
+      const n = e && e.name;
+      if (n === "NotAllowedError" || n === "SecurityError") return "camera blocked \u00b7 allow it in the address bar, then try again";
+      if (n === "NotFoundError" || n === "OverconstrainedError") return "no camera found";
+      if (e && e.message === "nodevices") return "camera needs a secure (https) page";
+      return "could not start the camera";
+    };
+
+    async function ensureTracker() {
+      if (landmarker) return;
+      mod = await import(MP + "/+esm");
+      const fs = await mod.FilesetResolver.forVisionTasks(MP + "/wasm");
+      const make = d => mod.FaceLandmarker.createFromOptions(fs, {
+        baseOptions: { modelAssetPath: MODEL, delegate: d }, runningMode: "VIDEO", numFaces: 1,
+      });
+      try { landmarker = await make("GPU"); } catch (e) { landmarker = await make("CPU"); }
+      const F = mod.FaceLandmarker;
+      conn = {
+        tess: F.FACE_LANDMARKS_TESSELATION, oval: F.FACE_LANDMARKS_FACE_OVAL, lips: F.FACE_LANDMARKS_LIPS,
+        eyeR: F.FACE_LANDMARKS_RIGHT_EYE, eyeL: F.FACE_LANDMARKS_LEFT_EYE,
+        browR: F.FACE_LANDMARKS_RIGHT_EYEBROW, browL: F.FACE_LANDMARKS_LEFT_EYEBROW,
+      };
+    }
+
+    function computeGaze() {
+      const L = face;
+      const rR = (L[468].x - L[33].x) / ((L[133].x - L[33].x) || 1e-6);
+      const rL = (L[473].x - L[362].x) / ((L[263].x - L[362].x) || 1e-6);
+      const gx = (.5 - (rR + rL) / 2) * 2 * 2.4;
+      const vR = (L[468].y - L[159].y) / ((L[145].y - L[159].y) || 1e-6);
+      const vL = (L[473].y - L[386].y) / ((L[374].y - L[386].y) || 1e-6);
+      const gy = ((vR + vL) / 2 - .5) * 2 * 1.6;
+      gaze.x = lerp(gaze.x, clamp(gx, -1, 1), .3);
+      gaze.y = lerp(gaze.y, clamp(gy, -1, 1), .3);
+      head.x = lerp(head.x, (1 - L[1].x) * 2 - 1, .4);   /* + = toward screen right (mirrored) */
+      head.y = lerp(head.y, L[1].y * 2 - 1, .4);
+    }
+
+    /* ---------- drawing helpers (all sizes scale with u) ---------- */
+    let u = 1, t = 0;
+    const accent = () => `hsl(34,100%,58%)`;
+    const sx = i => (1 - face[i].x) * W, sy = i => face[i].y * H;
+
+    function drawConn(list, alpha, lw) {
+      if (!list || !face) return;
+      ctx.strokeStyle = `hsla(${hue},100%,72%,${alpha})`; ctx.lineWidth = lw;
+      ctx.beginPath();
+      for (const c of list) {
+        const a = face[c.start], b = face[c.end];
+        if (!a || !b) continue;
+        ctx.moveTo((1 - a.x) * W, a.y * H); ctx.lineTo((1 - b.x) * W, b.y * H);
+      }
+      ctx.stroke();
+    }
+
+    function reticle(x, y, r, big) {
+      const pr = r * (1 + shown * .12);
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.shadowBlur = 12 * u; ctx.shadowColor = `hsl(${hue},100%,60%)`;
+      ctx.lineWidth = Math.max(1, 1.5 * u);
+      ctx.strokeStyle = `hsla(${hue},100%,78%,.95)`;
+      ctx.beginPath(); ctx.arc(0, 0, pr * 1.05, 0, TAU); ctx.stroke();
+      ctx.fillStyle = `hsla(${hue},100%,85%,.9)`;
+      ctx.beginPath(); ctx.arc(gaze.x * pr * .35, gaze.y * pr * .35, Math.max(1.5, 2 * u), 0, TAU); ctx.fill();
+
+      ctx.strokeStyle = `hsla(${hue},100%,72%,.75)`;
+      ctx.setLineDash([3 * u, 5 * u]); ctx.lineDashOffset = -t * 30 * u;
+      ctx.beginPath(); ctx.arc(0, 0, pr * 1.6, 0, TAU); ctx.stroke();
+      ctx.setLineDash([]);
+
+      if (big) {
+        ctx.save(); ctx.rotate(t * .8);
+        ctx.lineWidth = Math.max(1, 2 * u);
+        for (let k = 0; k < 3; k++) {
+          ctx.beginPath(); ctx.arc(0, 0, pr * 2.3, k * TAU / 3, k * TAU / 3 + 1.15); ctx.stroke();
+        }
+        ctx.restore();
+        ctx.save();
+        ctx.strokeStyle = accent(); ctx.shadowColor = accent(); ctx.lineWidth = Math.max(2, 3.4 * u);
+        const a0 = -.3 + gaze.x * .6 - gaze.y * .3;
+        ctx.beginPath(); ctx.arc(0, 0, pr * 2.0, a0, a0 + 1.75); ctx.stroke();
+        ctx.restore();
+        ctx.lineWidth = Math.max(1, u);
+        ctx.strokeStyle = `hsla(${hue},100%,72%,.7)`;
+        for (let k = 0; k < 48; k++) {
+          const a = k / 48 * TAU + t * .15, l = k % 4 === 0 ? .16 : .08;
+          ctx.beginPath();
+          ctx.moveTo(Math.cos(a) * pr * 2.55, Math.sin(a) * pr * 2.55);
+          ctx.lineTo(Math.cos(a) * pr * (2.55 + l), Math.sin(a) * pr * (2.55 + l)); ctx.stroke();
+        }
+        for (let k = 0; k < 4; k++) {
+          const a = k * Math.PI / 2;
+          ctx.beginPath();
+          ctx.moveTo(Math.cos(a) * pr * 1.15, Math.sin(a) * pr * 1.15);
+          ctx.lineTo(Math.cos(a) * pr * 1.5, Math.sin(a) * pr * 1.5); ctx.stroke();
+        }
+        for (let k = 0; k < 3; k++) {
+          const a = t * (1 + k * .4) + k * 2.1;
+          ctx.beginPath();
+          ctx.moveTo(Math.cos(a) * pr * 1.65, Math.sin(a) * pr * 1.65);
+          ctx.lineTo(Math.cos(a) * pr * 1.95, Math.sin(a) * pr * 1.95); ctx.stroke();
+        }
+      }
+      ctx.restore();
+    }
+
+    function leaderLabel(x, y, r, lines) {
+      const dir = x < W * .7 ? 1 : -1;
+      const x1 = x + dir * r * 2.5 * .7071, y1 = y - r * 2.5 * .7071;
+      const x2 = x + dir * r * 3.4, y2 = y - r * 3.2, x3 = x2 + dir * 130 * u;
+      ctx.save();
+      ctx.shadowBlur = 8 * u; ctx.shadowColor = `hsl(${hue},100%,60%)`;
+      ctx.strokeStyle = `hsla(${hue},100%,72%,.8)`; ctx.lineWidth = Math.max(1, u);
+      ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.lineTo(x3, y2); ctx.stroke();
+      ctx.fillStyle = `hsla(${hue},100%,88%,.95)`; ctx.font = `${11 * u}px ${MONO}`;
+      ctx.textAlign = dir > 0 ? "left" : "right"; ctx.textBaseline = "bottom";
+      lines.forEach((s, i) => ctx.fillText(s, x2 + dir * 4 * u, y2 - 3 * u - (lines.length - 1 - i) * 14 * u));
+      ctx.restore();
+    }
+
+    function panel(x, y, w, h, title, lines) {
+      ctx.save();
+      ctx.translate(x, y); ctx.transform(1, -.05, 0, 1, 0, 0);
+      const c = 8 * u;
+      ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(w - c, 0); ctx.lineTo(w, c); ctx.lineTo(w, h); ctx.lineTo(c, h); ctx.lineTo(0, h - c); ctx.closePath();
+      ctx.fillStyle = `hsla(${hue},80%,28%,.24)`; ctx.fill();
+      ctx.strokeStyle = `hsla(${hue},100%,72%,.6)`; ctx.lineWidth = Math.max(1, 1.2 * u); ctx.stroke();
+      ctx.textAlign = "left"; ctx.textBaseline = "top";
+      ctx.fillStyle = `hsla(${hue},100%,88%,.98)`; ctx.font = `600 ${12 * u}px ${MONO}`;
+      ctx.fillText(title, 10 * u, 8 * u);
+      ctx.fillStyle = `hsla(${hue},100%,80%,.85)`; ctx.font = `${11 * u}px ${MONO}`;
+      lines.forEach((s, i) => ctx.fillText(s, 10 * u, (28 + i * 16) * u));
+      ctx.restore();
+    }
+
+    function dial(x, y, r) {
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.strokeStyle = `hsla(${hue},100%,72%,.7)`; ctx.lineWidth = Math.max(1, u);
+      ctx.beginPath(); ctx.arc(0, 0, r, 0, TAU); ctx.stroke();
+      ctx.beginPath(); ctx.arc(0, 0, r * .62, 0, TAU); ctx.stroke();
+      ctx.save(); ctx.rotate(t * .5);
+      for (let k = 0; k < 72; k++) {
+        const a = k / 72 * TAU, l = k % 6 === 0 ? .14 : .07;
+        ctx.beginPath(); ctx.moveTo(Math.cos(a) * r, Math.sin(a) * r);
+        ctx.lineTo(Math.cos(a) * r * (1 - l), Math.sin(a) * r * (1 - l)); ctx.stroke();
+      }
+      ctx.restore();
+      ctx.save();
+      ctx.strokeStyle = accent(); ctx.lineWidth = Math.max(2, 3.4 * u);
+      ctx.rotate(-t * .9);
+      ctx.beginPath(); ctx.arc(0, 0, r * 1.12, 0, 1.4); ctx.stroke();
+      ctx.beginPath(); ctx.arc(0, 0, r * 1.12, 2.6, 3.4); ctx.stroke();
+      ctx.restore();
+      ctx.fillStyle = `hsla(${hue},100%,88%,.95)`; ctx.font = `600 ${15 * u}px ${MONO}`;
+      ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.fillText(String(Math.round(lock * 100)), 0, -2 * u);
+      ctx.font = `${9 * u}px ${MONO}`; ctx.fillStyle = `hsla(${hue},100%,80%,.8)`;
+      ctx.fillText("LOCK %", 0, 13 * u);
+      ctx.restore();
+    }
+
+    function frame(now) {
+      t = (now - start0) / 1000;
+      u = H / 675;
+      const compact = W / dpr < 420;
+
+      /* detection */
+      if (running && landmarker && video.readyState >= 2 && video.currentTime !== lastVT) {
+        lastVT = video.currentTime;
+        const ts = Math.max(now, lastTs + 1); lastTs = ts;
+        const t0 = performance.now();
+        let res = null;
+        try { res = landmarker.detectForVideo(video, ts); } catch (e) { res = null; }
+        lat = lerp(lat, performance.now() - t0, .1);
+        fpsC++; if (now - fpsT > 1000) { fps = fpsC; fpsC = 0; fpsT = now; }
+        face = (res && res.faceLandmarks && res.faceLandmarks[0]) || null;
+        if (face && face.length > 477) computeGaze(); else face = null;
+        if (opts.onTrack) opts.onTrack({ face: !!face, gaze: { x: gaze.x, y: gaze.y }, head: { x: head.x, y: head.y } });
+      }
+      if (!running) face = null;
+      lock += ((face ? 1 : 0) - lock) * .15;
+
+      /* Flow state easing */
+      thinkE += ((state === "thinking" ? 1 : 0) - thinkE) * .06;
+      speakE += ((state === "speaking" ? 1 : 0) - speakE) * .08;
+      const hT = state === "thinking" ? 268 : state === "speaking" ? 172 : 195;
+      hue += (hT - hue) * .05;
+      host.style.setProperty("--h", hue.toFixed(1));
+      let target = 0;
+      if (state === "speaking") {
+        target = (now - lastPulse < 200) ? level
+          : Math.max(0, .35 + .3 * Math.sin(t * 11) + .2 * Math.sin(t * 17.3) + .15 * Math.sin(t * 5.1));
+      }
+      shown += (target - shown) * .35;
+      flash *= .9;
+
+      /* clear, or draw a backdrop when the camera is off */
+      ctx.globalCompositeOperation = "source-over";
+      ctx.shadowBlur = 0;
+      ctx.clearRect(0, 0, W, H);
+      if (!running) {
+        const g = ctx.createRadialGradient(W / 2, H / 2, 0, W / 2, H / 2, Math.max(W, H) * .6);
+        g.addColorStop(0, `hsl(${hue},60%,10%)`); g.addColorStop(1, "#02060f");
+        ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+        ctx.strokeStyle = `hsla(${hue},100%,70%,.06)`; ctx.lineWidth = 1;
+        ctx.beginPath();
+        for (let x = 0; x < W; x += 40 * u) { ctx.moveTo(x, 0); ctx.lineTo(x, H); }
+        for (let y = 0; y < H; y += 40 * u) { ctx.moveTo(0, y); ctx.lineTo(W, y); }
+        ctx.stroke();
+      }
+
+      ctx.globalCompositeOperation = "lighter";
+      ctx.lineCap = "round"; ctx.lineJoin = "round";
+
+      if (face) {
+        /* mesh */
+        drawConn(conn.tess, .1, Math.max(.5, .6 * u));
+        drawConn(conn.oval, .55, Math.max(1, 1.2 * u));
+        drawConn(conn.lips, .6, Math.max(1, 1.1 * u));
+        drawConn(conn.eyeR, .7, Math.max(1, 1.1 * u)); drawConn(conn.eyeL, .7, Math.max(1, 1.1 * u));
+        drawConn(conn.browR, .45, Math.max(1, u)); drawConn(conn.browL, .45, Math.max(1, u));
+
+        /* face bounds + brackets */
+        let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+        for (let i = 0; i < 468; i++) {
+          const x = sx(i), y = sy(i);
+          if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y;
+        }
+        const pad = (x1 - x0) * .1; x0 -= pad; x1 += pad; y0 -= pad; y1 += pad;
+        const bl = Math.min(x1 - x0, y1 - y0) * .16;
+        ctx.strokeStyle = `hsla(${hue},100%,78%,.9)`; ctx.lineWidth = Math.max(1.5, 2 * u);
+        ctx.shadowBlur = 10 * u; ctx.shadowColor = `hsl(${hue},100%,60%)`;
+        ctx.beginPath();
+        ctx.moveTo(x0, y0 + bl); ctx.lineTo(x0, y0); ctx.lineTo(x0 + bl, y0);
+        ctx.moveTo(x1 - bl, y0); ctx.lineTo(x1, y0); ctx.lineTo(x1, y0 + bl);
+        ctx.moveTo(x0, y1 - bl); ctx.lineTo(x0, y1); ctx.lineTo(x0 + bl, y1);
+        ctx.moveTo(x1 - bl, y1); ctx.lineTo(x1, y1); ctx.lineTo(x1, y1 - bl);
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+        if (!compact) {
+          ctx.fillStyle = `hsla(${hue},100%,85%,.9)`; ctx.font = `${11 * u}px ${MONO}`;
+          ctx.textAlign = "left"; ctx.textBaseline = "bottom";
+          ctx.fillText("FACE-01", x0, y0 - 5 * u);
+        }
+
+        /* thinking: scanner sweeping the face */
+        if (thinkE > .02) {
+          const yy = y0 + (y1 - y0) * (.5 + .5 * Math.sin(t * 2.4));
+          const g = ctx.createLinearGradient(0, yy - 40 * u, 0, yy);
+          g.addColorStop(0, `hsla(${hue},100%,70%,0)`); g.addColorStop(1, `hsla(${hue},100%,70%,${.25 * thinkE})`);
+          ctx.fillStyle = g; ctx.fillRect(x0, yy - 40 * u, x1 - x0, 40 * u);
+          ctx.strokeStyle = `hsla(${hue},100%,80%,${.9 * thinkE})`; ctx.lineWidth = Math.max(1, 1.5 * u);
+          ctx.beginPath(); ctx.moveTo(x0, yy); ctx.lineTo(x1, yy); ctx.stroke();
+        }
+
+        /* eye reticles */
+        const ir = Math.max(4 * u, Math.hypot(sx(469) - sx(471), sy(469) - sy(471)) / 2);
+        const ex = sx(468), ey = sy(468);
+        reticle(ex, ey, ir, true);
+        reticle(sx(473), sy(473), ir, false);
+        if (!compact) {
+          leaderLabel(ex, ey, ir, ["R-EYE  TRACKING", `GZ ${fmt(gaze.x)} ${fmt(gaze.y)}`]);
+        }
+      } else if (running || true) {
+        /* searching reticle */
+        const r = H * .09;
+        ctx.save();
+        ctx.globalAlpha = running ? (.5 + .5 * Math.sin(t * 5)) : .5;
+        reticle(W / 2, H / 2, r * .5, true);
+        ctx.restore();
+        ctx.fillStyle = `hsla(${hue},100%,85%,.9)`; ctx.font = `${12 * u}px ${MONO}`;
+        ctx.textAlign = "center"; ctx.textBaseline = "top";
+        if (running && !compact) ctx.fillText("NO FACE LOCK", W / 2, H / 2 + r * 1.6);
+      }
+
+      /* side panels */
+      ctx.globalCompositeOperation = "source-over";
+      ctx.shadowBlur = 0;
+      if (!compact) {
+        const stateName = state === "idle" ? "STANDBY" : state.toUpperCase();
+        panel(28 * u, 40 * u, 250 * u, 82 * u, "FLOW // LINK", [
+          `MODE   ${stateName}`, `TRACK  ${running ? fps + " FPS" : "OFFLINE"}`, `LAT    ${running ? lat.toFixed(0) : "--"} MS`,
+        ]);
+        dial(120 * u, 270 * u, 62 * u);
+        panel(28 * u, 400 * u, 250 * u, 120 * u, "GAZE ANALYSIS", [
+          `X      ${fmt(gaze.x)}`, `Y      ${fmt(gaze.y)}`,
+          `HEAD   ${fmt(head.x)} ${fmt(head.y)}`, `LOCK   ${Math.round(lock * 100)}%`,
+        ]);
+
+        /* voice bars */
+        ctx.globalCompositeOperation = "lighter";
+        const bw = 5 * u, gap = 3 * u, nb = 48, bx = W / 2 - (nb * (bw + gap)) / 2, by = H - 46 * u;
+        for (let i = 0; i < nb; i++) {
+          const env = Math.sin(Math.PI * (i + .5) / nb);
+          const hgt = u * (2 + 1.5 * Math.sin(i * .5 + t * 1.5)) +
+            shown * u * 34 * env * (.35 + .65 * Math.abs(Math.sin(i * .9 + t * 8)));
+          ctx.fillStyle = `hsla(${hue + 130 * speakE},100%,72%,${.4 + shown * .5})`;
+          ctx.fillRect(bx + i * (bw + gap), by - hgt / 2, bw, Math.max(1, hgt));
+        }
+      }
+
+      /* corner brackets, status */
+      ctx.globalCompositeOperation = "source-over";
+      const m = 14 * u, len = 26 * u;
+      ctx.strokeStyle = `hsla(${hue},100%,70%,.6)`; ctx.lineWidth = Math.max(1, 1.5 * u);
+      ctx.beginPath();
+      ctx.moveTo(m, m + len); ctx.lineTo(m, m); ctx.lineTo(m + len, m);
+      ctx.moveTo(W - m - len, m); ctx.lineTo(W - m, m); ctx.lineTo(W - m, m + len);
+      ctx.moveTo(m, H - m - len); ctx.lineTo(m, H - m); ctx.lineTo(m + len, H - m);
+      ctx.moveTo(W - m - len, H - m); ctx.lineTo(W - m, H - m); ctx.lineTo(W - m, H - m - len);
+      ctx.stroke();
+      if (status && !compact) {
+        ctx.font = `${12 * u}px ${MONO}`; ctx.textAlign = "left"; ctx.textBaseline = "bottom";
+        ctx.fillStyle = statusBad ? "hsl(8,100%,72%)" : `hsla(${hue},100%,85%,.9)`;
+        ctx.fillText(status, m + 6 * u, H - m - 6 * u);
+      }
+      if (compact) {
+        ctx.font = `${Math.max(9, 10 * u * 3)}px ${MONO}`; ctx.textAlign = "right"; ctx.textBaseline = "bottom";
+        ctx.fillStyle = `hsla(${hue},100%,85%,.9)`;
+        ctx.fillText(state === "idle" ? "standby" : state, W - m, H - m);
+      }
+
+      /* flash on state change */
+      if (flash > .02 && !reduce) {
+        ctx.globalCompositeOperation = "lighter";
+        ctx.fillStyle = `hsla(${hue},100%,70%,${flash * .14})`; ctx.fillRect(0, 0, W, H);
+      }
+      requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
+
+    /* ---------------- public API ---------------- */
+    const api = {
+      /* camera + tracking */
+      async start() {
+        if (running || starting) return;
+        starting = true; setStatus("requesting camera\u2026");
+        try {
+          if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) throw new Error("nodevices");
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: "user" }, audio: false,
+          });
+        } catch (e) { setStatus(errText(e), true); starting = false; return; }
+        video.srcObject = stream;
+        try { await video.play(); } catch (e) { /* autoplay is allowed once the stream is muted */ }
+        if (video.readyState < 2) await new Promise(r => video.addEventListener("loadeddata", r, { once: true }));
+        host.style.aspectRatio = `${video.videoWidth} / ${video.videoHeight}`;
+        host.classList.add("on"); running = true; starting = false;
+        setStatus("loading tracker\u2026");
+        try { await ensureTracker(); setStatus(""); }
+        catch (e) { console.error(e); setStatus("tracker failed to load \u00b7 camera view only", true); }
+      },
+      stop() {
+        running = false; starting = false; face = null;
+        if (stream) stream.getTracks().forEach(tr => tr.stop());
+        stream = null; video.srcObject = null;
+        host.classList.remove("on"); setStatus("");
+      },
+      isRunning: () => running,
+      /* small corner window (true) or normal size (false) */
+      setMini(on) { host.classList.toggle("fh-mini", !!on); },
+      isMini: () => host.classList.contains("fh-mini"),
+      /* latest tracking: { face, gaze:{x,y}, head:{x,y} }, values from -1 to 1 */
+      getTracking: () => ({ face: !!face, gaze: { ...gaze }, head: { ...head } }),
+      /* Flow states: "idle" | "thinking" | "speaking" */
+      setState(s) { if (s !== state) { state = s; flash = 1; } if (s !== "speaking") level = 0; },
+      /* optional: 0..1 loudness */
+      pulse(v) { level = clamp(v, 0, 1); lastPulse = performance.now(); },
+    };
+    return api;
+  }
+  return { mount };
+})();
+/* ====================== end of FlowHUD block ====================== */
+
+/* ---------- demo wiring (not needed in Flow) ---------- */
+const hud = FlowHUD.mount(document.getElementById("hud"));
+const log = document.getElementById("log");
+const camBtn = document.getElementById("cam");
+camBtn.addEventListener("click", async () => {
+  if (hud.isRunning()) { hud.stop(); camBtn.textContent = "Camera on"; }
+  else { await hud.start(); if (hud.isRunning()) camBtn.textContent = "Camera off"; }
+});
+document.getElementById("hud").querySelector(".fh-start button").addEventListener("click", () => {
+  setTimeout(() => { if (hud.isRunning()) camBtn.textContent = "Camera off"; }, 1500);
+});
+const miniBtn = document.getElementById("mini");
+miniBtn.addEventListener("click", () => {
+  hud.setMini(!hud.isMini());
+  miniBtn.textContent = hud.isMini() ? "Full view" : "Small view";
+});
+document.querySelectorAll("[data-s]").forEach(b =>
+  b.addEventListener("click", () => hud.setState(b.dataset.s)));
+
+document.getElementById("demo").addEventListener("click", async () => {
+  const words = "Hello Athul, I am Flow. I can see you, and my eyes are tracking yours.".split(" ");
+  log.textContent = "";
+  hud.setState("thinking");
+  await new Promise(r => setTimeout(r, 1600));
+  hud.setState("speaking");
+  for (const w of words) { log.textContent += w + " "; await new Promise(r => setTimeout(r, 240)); }
+  hud.setState("idle");
+});
+
+document.getElementById("say").addEventListener("click", () => {
+  if (!("speechSynthesis" in window)) { log.textContent = "This browser has no speech synthesis."; return; }
+  const text = "Hi, I am Flow. I can see you now.";
+  log.textContent = text;
+  const ut = new SpeechSynthesisUtterance(text);
+  ut.onstart = () => hud.setState("speaking");
+  ut.onboundary = () => hud.pulse(.4 + Math.random() * .6);
+  ut.onend = ut.onerror = () => hud.setState("idle");
+  speechSynthesis.cancel();
+  hud.setState("thinking");
+  setTimeout(() => speechSynthesis.speak(ut), 900);
+});
+</script>
+</body>
+</html>
